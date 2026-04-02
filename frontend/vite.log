@@ -1,0 +1,11 @@
+
+> linkedin-assistant-frontend@0.0.0 dev
+> vite --port 5173 --host
+
+Port 5173 is in use, trying another one...
+
+  VITE v5.4.21  ready in 71 ms
+
+  ➜  Local:   http://localhost:5174/
+  ➜  Network: http://192.168.31.203:5174/
+  ➜  press h + enter to show help

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Assistant | Native JS</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="title">LinkedIn Assistant</h1>
+            <div class="user-info">
+                <span class="session-badge">Session Active: <span class="premium-text">Premium User</span></span>
+            </div>
+        </header>
+
+        <main class="grid-layout">
+            <!-- Editor Section -->
+            <section class="post-editor glass-card">
+                <h2 class="section-title">Craft New Content</h2>
+                <p class="section-subtitle">Draft your professional story. Use the AI to ignite ideas.</p>
+                
+                <div class="ai-controls">
+                    <p class="ai-tip">Select a style and topic to generate a draft via Google Gemini.</p>
+                    
+                    <div class="prompt-selector">
+                        <label class="prompt-option">
+                            <input type="radio" name="prompt-type" value="humanized" checked>
+                            <span class="prompt-chip">Advanced Human</span>
+                        </label>
+                        <label class="prompt-option">
+                            <input type="radio" name="prompt-type" value="simple">
+                            <span class="prompt-chip">Simple / Direct</span>
+                        </label>
+                    </div>
+
+                    <div class="input-group">
+                        <input type="text" id="ai-topic" placeholder="e.g. Leadership in Tech">
+                        <button id="btn-ai-draft" class="btn btn-secondary">Draft with AI</button>
+                    </div>
+                </div>
+
+                <div class="image-upload-wrapper">
+                    <label for="image-input" class="file-input-label">
+                        <span class="upload-icon">🖼️</span>
+                        <span>Add images to your post</span>
+                        <input type="file" id="image-input" accept="image/*" multiple>
+                    </label>
+                </div>
+
+                <textarea id="post-content" placeholder="Edit your draft here..."></textarea>
+                
+                <div class="actions">
+                    <button id="btn-save-post" class="btn btn-primary">Save to Queue</button>
+                </div>
+            </section>
+
+            <!-- Preview/Report Section -->
+            <aside class="preview-report glass-card">
+                <h2 class="section-title sidebar-title">LinkedIn Preview</h2>
+                
+                <div id="linkedin-preview-container">
+                    <div class="linkedin-post">
+                        <div class="li-header">
+                            <div class="li-user-block">
+                                <div class="li-avatar">S</div>
+                                <div class="li-user-meta">
+                                    <span class="li-name">Salas Ks <span class="li-badge">• You</span></span>
+                                    <span class="li-headline">B.Tech CS@CCE |IV Rep| IEDC ,Mulearn & Tinke...</span>
+                                    <div class="li-time-row">
+                                        <span>2w</span>
+                                        <span>•</span>
+                                        <span>🌐</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="li-more">•••</span>
+                        </div>
+                        
+                        <div id="li-post-text" class="li-content">
+                            Excited to share that I've been working on this new LinkedIn Assistant! 🚀
+                        </div>
+
+                        <div id="li-image-grid" class="li-media-grid" data-count="0">
+                            <!-- Images will be injected here -->
+                        </div>
+
+                        <div class="li-social-stats">
+                            <div class="li-stats-left">
+                                <div class="li-reaction-icons">👍❤️💡</div>
+                                <span>You and 19 others</span>
+                            </div>
+                            <div class="li-stats-right">
+                                <span>2 comments</span>
+                            </div>
+                        </div>
+
+                        <div class="li-actions">
+                            <button class="li-action-btn"><span class="li-action-icon">👍</span><span>Like</span></button>
+                            <button class="li-action-btn"><span class="li-action-icon">💬</span><span>Comment</span></button>
+                            <button class="li-action-btn"><span class="li-action-icon">♻️</span><span>Repost</span></button>
+                            <button class="li-action-btn"><span class="li-action-icon">➡️</span><span>Send</span></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="report-container" style="margin-top: 2rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem;">
+                    <p class="placeholder-text">Real-time analysis active...</p>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Dashboard Section -->
+        <section class="dashboard">
+            <div class="dashboard-header">
+                <h2 class="section-title">Content Queue</h2>
+                <span id="post-count" class="count-badge">0 Items</span>
+            </div>
+            <div id="post-list" class="post-list">
+                <!-- Posts will be injected here -->
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
