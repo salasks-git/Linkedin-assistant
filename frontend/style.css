@@ -69,9 +69,11 @@ body {
 }
 
 .grid-layout {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .glass-card {
@@ -79,8 +81,8 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
-  border-radius: 1.5rem;
-  padding: 2.5rem;
+  border-radius: 2rem;
+  padding: 3rem;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   transition: var(--transition-smooth);
 }
@@ -706,8 +708,8 @@ textarea:focus {
 }
 
 #ai-topic {
-    min-height: 140px;
-    padding: 1.2rem;
+    min-height: 200px;
+    padding: 1.5rem;
     resize: vertical;
     line-height: 1.6;
     background: rgba(0, 0, 0, 0.2);

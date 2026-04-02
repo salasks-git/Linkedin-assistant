@@ -183,6 +183,9 @@ async function handleAIDraft() {
 
     setLoading(true, 'btn-ai-draft', 'Processing...');
     liPostText.innerHTML = ''; // Clear for streaming
+
+    // Smooth scroll to results immediately
+    document.getElementById('linkedin-preview-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
     
     try {
         // Step 1: Extract Metadata (Mentors, etc.) if fields are empty
@@ -258,6 +261,9 @@ async function handleAIRefine() {
     addChatMessage(instruction, 'user');
     chatInput.value = '';
     setLoading(true);
+
+    // Ensure preview is in view
+    document.getElementById('linkedin-preview-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     try {
         const response = await fetch(`${API_BASE}/posts/refine`, {
