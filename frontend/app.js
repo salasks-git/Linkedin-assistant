@@ -1,16 +1,15 @@
 const API_BASE = 'http://localhost:8000';
 
 // DOM Elements
-const postContent = document.getElementById('post-content');
 const aiTopic = document.getElementById('ai-topic');
 const btnAIDraft = document.getElementById('btn-ai-draft');
 const btnSavePost = document.getElementById('btn-save-post');
 const postList = document.getElementById('post-list');
 const postCount = document.getElementById('post-count');
-const reportContainer = document.getElementById('report-container');
 const imageInput = document.getElementById('image-input');
 const liPostText = document.getElementById('li-post-text');
 const liImageGrid = document.getElementById('li-image-grid');
+const metricsContainer = document.getElementById('metrics-container');
 
 let isProcessing = false;
 let selectedImages = [];
@@ -21,10 +20,15 @@ const mentorsInput = document.getElementById('mentors');
 const coordinatorsInput = document.getElementById('coordinators');
 const promptSelectorContainer = document.getElementById('dynamic-prompt-selector');
 
-// Chat references
+// Chat & Side Panel references
+const chatPanel = document.getElementById('ai-chat-panel');
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const btnChatSend = document.getElementById('btn-chat-send');
+const btnChatToggle = document.getElementById('btn-chat-toggle');
+const btnChatClose = document.getElementById('btn-chat-close');
+const btnCopyPost = document.getElementById('btn-copy-post');
+const btnPublishDirect = document.getElementById('btn-publish-direct');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -69,7 +73,7 @@ function renderPromptChips(prompts) {
 function setupEventListeners() {
     // Sync Preview edit changes back to history logic
     liPostText.addEventListener('input', () => {
-        handlePreview(); // Still triggers analysis
+        updateMetrics(); // Correct function for real-time analysis
     });
 
     // AI Drafting - Enter to draft, Shift+Enter for new line
@@ -96,6 +100,23 @@ function setupEventListeners() {
             handleAIRefine();
         }
     });
+
+    // Panel Toggle
+    btnChatToggle.addEventListener('click', () => {
+        chatPanel.classList.add('active');
+        document.body.classList.add('chat-open');
+        chatInput.focus();
+    });
+
+    btnChatClose.addEventListener('click', () => {
+        chatPanel.classList.remove('active');
+        document.body.classList.remove('chat-open');
+    });
+
+    btnCopyPost.addEventListener('click', handleCopyContent);
+    if (btnPublishDirect) {
+        btnPublishDirect.addEventListener('click', publishToLinkedIn);
+    }
 }
 
 // API Functions
@@ -109,11 +130,10 @@ async function fetchPosts() {
     }
 }
 
-async function handlePreview() {
-    const content = liPostText.innerText; // Get text from contenteditable
-    
+async function updateMetrics() {
+    const content = liPostText.innerText;
     if (!content.trim() || content === 'Draft your professional story...') {
-        reportContainer.innerHTML = '<p class="placeholder-text">Start typing to see real-time professional analysis...</p>';
+        metricsContainer.innerHTML = '';
         return;
     }
 
@@ -124,16 +144,38 @@ async function handlePreview() {
             body: JSON.stringify({ content })
         });
         const report = await response.json();
-        renderReport(report);
+        renderMetrics(report);
     } catch (error) {
-        console.error('Error fetching preview:', error);
+        console.error('Error fetching metrics:', error);
     }
 }
+
+function renderMetrics(report) {
+    metricsContainer.innerHTML = `
+        <div class="metric-item">
+            <span class="metric-label">Character Count</span>
+            <span class="metric-value" style="color: ${report.character_count > 3000 ? '#ef4444' : 'var(--text-primary)'}">
+                ${report.character_count} / 3000
+            </span>
+        </div>
+        <div class="metric-recommendation">
+            <strong>AI Optimization</strong>
+            <p>"${report.recommendation}"</p>
+        </div>
+    `;
+}
+
 
 function handleImageUpload(e) {
     const files = Array.from(e.target.files);
     selectedImages = files;
     renderImageGrid(files);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function updateLinkedInPreview(text) {
@@ -142,8 +184,11 @@ function updateLinkedInPreview(text) {
         return;
     }
     
-    // Highlight hashtags
-    const formatted = text.replace(/#(\w+)/g, '<span class="li-hashtag">#$1</span>');
+    // First escape HTML special characters
+    const escaped = escapeHtml(text);
+    
+    // Then highlight hashtags safely
+    const formatted = escaped.replace(/#(\w+)/g, '<span class="li-hashtag">#$1</span>');
     liPostText.innerHTML = formatted;
 }
 
@@ -237,15 +282,13 @@ async function handleAIDraft() {
             }
             
             liPostText.innerText += chunk;
-            
-            // Re-trigger analysis
-            handlePreview();
+            updateMetrics();
         }
         
         // Removed aiTopic.value = ''; (Persistent input)
     } catch (error) {
         console.error('Error generating AI draft:', error);
-        liPostText.value = `Error: ${error.message}. Please check your connection.`;
+        liPostText.innerText = `[Error]: ${error.message} - Please check your backend connection or refresh your API keys.`;
     } finally {
         setLoading(false, 'btn-ai-draft', 'Draft with AI');
     }
@@ -295,7 +338,7 @@ async function handleAIRefine() {
             }
             
             liPostText.innerText += chunk;
-            handlePreview(); // Analysis update
+            updateMetrics();
         }
         
         addChatMessage("Draft updated! Anything else?", 'ai');
@@ -323,19 +366,48 @@ async function handleSavePost() {
     if (!content || isProcessing || content === 'Draft your professional story...') return;
 
     setLoading(true, 'btn-save-post', 'Saving...');
-    try {
-        await fetch(`${API_BASE}/posts/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content })
+    
+    const formData = new FormData();
+    formData.append("content", content);
+    
+    // Add images if any
+    if (selectedImages && selectedImages.length > 0) {
+        selectedImages.forEach(file => {
+            formData.append("images", file);
         });
-        liPostText.innerHTML = 'Draft your professional story...';
-        reportContainer.innerHTML = '<p class="placeholder-text">Start typing to see real-time professional analysis...</p>';
-        fetchPosts();
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/posts/`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) throw new Error('Failed to save to database');
+
+        // Success feedback
+        const btn = document.getElementById('btn-save-post');
+        btn.innerText = '✅ Saved to Queue';
+        btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+        
+        setTimeout(() => {
+            btn.innerText = 'Save Draft to Queue';
+            btn.style.background = '';
+            setLoading(false, 'btn-save-post', 'Save Draft to Queue');
+            
+            // Clear and refresh
+            liPostText.innerHTML = 'Draft your professional story...';
+            liImageGrid.innerHTML = '';
+            liImageGrid.setAttribute('data-count', '0');
+            selectedImages = [];
+            metricsContainer.innerHTML = '';
+            fetchPosts();
+        }, 1500);
+
     } catch (error) {
         console.error('Error saving post:', error);
-    } finally {
-        setLoading(false, 'btn-save-post', 'Save to Queue');
+        alert('Failed to save draft. Is the backend running?');
+        setLoading(false, 'btn-save-post', 'Save Draft to Queue');
     }
 }
 
@@ -374,9 +446,20 @@ function renderPosts(posts) {
         card.className = 'post-item glass-card';
         card.style.animationDelay = `${0.1 + (index * 0.05)}s`;
         
+        // Build image indicator if there are images
+        let imagesHtml = '';
+        if (post.image_urls && post.image_urls.length > 0) {
+            imagesHtml = `<div class="post-queue-images">`;
+            post.image_urls.forEach(url => {
+                imagesHtml += `<img src="${API_BASE}${url}" class="queue-thumbnail">`;
+            });
+            imagesHtml += `</div>`;
+        }
+        
         card.innerHTML = `
             <div class="status-badge status-${post.status.toLowerCase()}">${post.status}</div>
             <p class="post-content">${post.content}</p>
+            ${imagesHtml}
             <div class="post-footer">
                 <div class="post-meta">
                     <span class="meta-label">Created</span>
@@ -390,26 +473,6 @@ function renderPosts(posts) {
     });
 }
 
-function renderReport(report) {
-    reportContainer.innerHTML = `
-        <div class="report-item">
-            <span class="report-label">Hook Analysis</span>
-            <span class="report-value" style="color: ${report.is_rtcfr_compliant ? '#4ade80' : '#fbbf24'}">
-                ${report.is_rtcfr_compliant ? 'Strong Hook' : 'Weak Hook'}
-            </span>
-        </div>
-        <div class="report-item">
-            <span class="report-label">Character Count</span>
-            <span class="report-value" style="color: ${report.character_count > 3000 ? '#ef4444' : 'var(--text-primary)'}">
-                ${report.character_count} / 3000
-            </span>
-        </div>
-        <div class="recommendation-box">
-            <strong>Recommendation</strong>
-            <p>"${report.recommendation}"</p>
-        </div>
-    `;
-}
 
 // UI Helpers
 function showServiceAlert(message) {
@@ -437,11 +500,107 @@ function showServiceAlert(message) {
     }, 8000);
 }
 
+async function handleCopyContent() {
+    const content = liPostText.innerText;
+    try {
+        await navigator.clipboard.writeText(content);
+        
+        // Visual feedback
+        const originalText = btnCopyPost.innerText;
+        btnCopyPost.innerText = '✅';
+        btnCopyPost.classList.add('success');
+        
+        setTimeout(() => {
+            btnCopyPost.innerText = originalText;
+            btnCopyPost.classList.remove('success');
+        }, 2000);
+    } catch (err) {
+        console.error('Failed to copy text: ', err);
+    }
+}
+
 function setLoading(loading, btnId, text) {
     isProcessing = loading;
     if (btnId) {
         const btn = document.getElementById(btnId);
-        btn.disabled = loading;
-        btn.innerText = text;
+        if (btn) {
+            btn.disabled = loading;
+            if (btnId === 'btn-publish-direct') {
+                btn.innerHTML = loading ? `<span class="li-action-icon">⏳</span><span>${text}</span>` : `<span class="li-action-icon">➡️</span><span>Publish</span>`;
+            } else {
+                btn.innerText = text;
+            }
+        }
     }
 }
+
+async function publishToLinkedIn() {
+    if (isProcessing) return;
+    
+    const content = liPostText.innerText;
+    if (!content.trim() || content === 'Draft your professional story...') {
+        alert("Please draft some content before publishing.");
+        return;
+    }
+
+    setLoading(true, 'btn-publish-direct', 'Publishing...');
+    
+    try {
+        const formData = new FormData();
+        formData.append("text", content);
+        
+        if (selectedImages && selectedImages.length > 0) {
+            selectedImages.forEach(file => {
+                formData.append("images", file);
+            });
+        }
+        
+        const response = await fetch(`${API_BASE}/posts/publish-direct`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || 'Failed to publish to LinkedIn');
+        }
+        
+        const result = await response.json();
+        
+        setLoading(false, 'btn-publish-direct', 'Publish');
+        showResultPopup('success', 'Published to LinkedIn!', 'Your post is now live on your LinkedIn profile. 🎉');
+        
+    } catch (error) {
+        console.error('Publishing error:', error);
+        setLoading(false, 'btn-publish-direct', 'Publish');
+        showResultPopup('error', 'Publishing Failed', `${error.message}\nMake sure your LINKEDIN_ACCESS_TOKEN is configured in backend/.env`);
+    }
+}
+
+function showResultPopup(type, title, message) {
+    // Remove any existing popup
+    const existing = document.getElementById('result-popup-overlay');
+    if (existing) existing.remove();
+
+    const isSuccess = type === 'success';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'result-popup-overlay';
+    overlay.className = 'popup-overlay';
+    overlay.innerHTML = `
+        <div class="popup-card ${type}">
+            <div class="popup-icon">${isSuccess ? '✅' : '❌'}</div>
+            <h3 class="popup-title">${title}</h3>
+            <p class="popup-message">${message}</p>
+            <button class="popup-btn ${type}" id="popup-close-btn">Got it</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Close handlers
+    const close = () => overlay.remove();
+    document.getElementById('popup-close-btn').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+}
+

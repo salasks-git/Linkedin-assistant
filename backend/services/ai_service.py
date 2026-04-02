@@ -1,16 +1,17 @@
 import os
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Configure the Gemini API
+# Configure the Gemini client (uses REST, not gRPC)
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.0-flash")
 
+client = None
 if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
+    client = genai.Client(api_key=GOOGLE_API_KEY)
 
 from services.prompts import PROMPTS
 
@@ -19,7 +20,7 @@ async def extract_metadata(text: str):
     Uses Gemini to extract resource_persons, mentors, and coordinators from a topic description.
     Returns a dictionary of extracted entities.
     """
-    if not GOOGLE_API_KEY:
+    if not client:
         return {}
 
     extraction_prompt = f"""
@@ -39,11 +40,10 @@ async def extract_metadata(text: str):
     """
     
     try:
-        model = genai.GenerativeModel(MODEL_NAME)
-        # Low temperature for precise extraction
-        response = await model.generate_content_async(
-            extraction_prompt, 
-            generation_config={"temperature": 0.1}
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=extraction_prompt,
+            config={"temperature": 0.1}
         )
         
         import json
@@ -62,7 +62,7 @@ async def refine_linkedin_draft(current_content: str, instruction: str):
     """
     Refines an existing draft based on user instructions while maintaining LinkedIn best practices.
     """
-    if not GOOGLE_API_KEY:
+    if not client:
         yield "Error: GOOGLE_API_KEY is not set."
         return
 
@@ -83,14 +83,16 @@ async def refine_linkedin_draft(current_content: str, instruction: str):
     """
     
     try:
-        model = genai.GenerativeModel(MODEL_NAME)
-        response = await model.generate_content_async(refine_prompt, stream=True)
+        response = client.models.generate_content_stream(
+            model=MODEL_NAME,
+            contents=refine_prompt
+        )
         
-        async for chunk in response:
+        for chunk in response:
             try:
                 if chunk.text:
                     yield chunk.text
-            except ValueError:
+            except (ValueError, AttributeError):
                 yield "[SERVICE_ERROR] Safety Block: The AI refused this refinement."
                 
     except Exception as e:
@@ -105,7 +107,7 @@ async def generate_linkedin_draft(
     """
     Generates a LinkedIn post draft using Google's Gemini API with streaming.
     """
-    if not GOOGLE_API_KEY:
+    if not client:
         yield "Error: GOOGLE_API_KEY is not set. Please add it to your environment."
         return
 
@@ -134,21 +136,16 @@ async def generate_linkedin_draft(
     prompt = string.Formatter().vformat(template, (), SafeDict(context))
     
     try:
-        model = genai.GenerativeModel(MODEL_NAME)
-        # Using stream=True for real-time word-by-word population
-        response = await model.generate_content_async(prompt, stream=True)
+        response = client.models.generate_content_stream(
+            model=MODEL_NAME,
+            contents=prompt
+        )
         
-        async for chunk in response:
+        for chunk in response:
             try:
                 if chunk.text:
                     yield chunk.text
-                elif hasattr(chunk, 'candidates') and chunk.candidates:
-                    # If text is empty, it might be a block or empty response
-                    reason = chunk.candidates[0].finish_reason
-                    if reason != 1: # 1 means STOP (normal)
-                        yield f"[SERVICE_ERROR] AI Generation Blocked: {reason.name}. Please refine your prompt."
-            except ValueError:
-                # This often happens if the safety filter blocks the chunk mid-stream
+            except (ValueError, AttributeError):
                 yield "[SERVICE_ERROR] Safety Block: The AI refused this content due to safety filters."
             
     except Exception as e:

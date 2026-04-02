@@ -8,7 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
+    <div class="app-shell">
+        <div class="main-content">
         <header class="header">
             <h1 class="title">LinkedIn Assistant</h1>
             <div class="user-info">
@@ -81,7 +82,10 @@
                                     </div>
                                 </div>
                             </div>
-                            <span class="li-more">•••</span>
+                            <div class="li-header-actions">
+                                <button id="btn-copy-post" class="btn-copy-sm" title="Copy Content">📋</button>
+                                <span class="li-more">•••</span>
+                            </div>
                         </div>
                         
                         <div id="li-post-text" class="li-content" contenteditable="true">
@@ -106,7 +110,7 @@
                             <button class="li-action-btn"><span class="li-action-icon">👍</span><span>Like</span></button>
                             <button class="li-action-btn"><span class="li-action-icon">💬</span><span>Comment</span></button>
                             <button class="li-action-btn"><span class="li-action-icon">♻️</span><span>Repost</span></button>
-                            <button class="li-action-btn"><span class="li-action-icon">➡️</span><span>Send</span></button>
+                            <button id="btn-publish-direct" class="li-action-btn"><span class="li-action-icon">➡️</span><span>Publish</span></button>
                         </div>
                     </div>
                 </div>
@@ -115,22 +119,10 @@
                     <button id="btn-save-post" class="btn btn-primary full-width">Save Draft to Queue</button>
                 </div>
 
-                <div class="ai-chat-section">
-                    <h3 class="chat-title">Refine with AI</h3>
-                    <div id="chat-messages" class="chat-messages">
-                        <div class="chat-bubble ai">
-                            How can I help you perfect this draft? Try: "Make it more professional" or "Add 3 hashtags".
-                        </div>
-                    </div>
-                    <div class="chat-input-wrapper">
-                        <input type="text" id="chat-input" placeholder="Refine instruction...">
-                        <button id="btn-chat-send"><span>↗️</span></button>
-                    </div>
+                <div id="metrics-container" class="metrics-container">
+                    <!-- Metrics injected here -->
                 </div>
 
-                <div id="report-container" style="margin-top: 2rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem;">
-                    <p class="placeholder-text">Real-time analysis active...</p>
-                </div>
             </aside>
         </main>
 
@@ -144,7 +136,32 @@
                 <!-- Posts will be injected here -->
             </div>
         </section>
-    </div>
+
+        </div> <!-- End of .main-content -->
+        
+        <!-- AI Sidekick Chat Panel -->
+        <div id="ai-chat-panel" class="ai-chat-panel">
+            <div class="chat-header">
+                <h3 class="chat-title">AI Refiner</h3>
+                <button id="btn-chat-close" class="btn-icon">✕</button>
+            </div>
+            <div id="chat-messages" class="chat-messages">
+                <div class="chat-bubble ai">
+                    How can I help you perfect this draft? Try: "Make it more professional" or "Add 3 hashtags".
+                </div>
+            </div>
+            <div class="chat-input-wrapper">
+                <input type="text" id="chat-input" placeholder="Refine instruction...">
+                <button id="btn-chat-send"><span>↗️</span></button>
+            </div>
+        </div>
+
+        <!-- Floating Summon Button -->
+        <button id="btn-chat-toggle" class="btn-chat-summon">
+            <span class="summon-icon">🤖</span>
+            <span class="summon-text">Refine with AI</span>
+        </button>
+    </div> <!-- End of .app-shell -->
 
     <script src="app.js"></script>
 </body>

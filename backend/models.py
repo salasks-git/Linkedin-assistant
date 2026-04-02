@@ -12,6 +12,7 @@ class Post(Base):
     scheduled_at = Column(DateTime, default=datetime.datetime.utcnow)
     status = Column(String, default="draft") # draft, scheduled, posted, failed
     linkedin_post_id = Column(String, nullable=True)
+    image_paths = Column(Text, nullable=True) # JSON list of local file names
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class UserProfile(Base):

@@ -13,6 +13,7 @@ class Post(PostBase):
     scheduled_at: datetime
     status: str
     linkedin_post_id: Optional[str] = None
+    image_urls: List[str] = []
     created_at: datetime
 
     class Config:
@@ -37,3 +38,10 @@ class AIDraftRequest(BaseModel):
 class AIRefineRequest(BaseModel):
     current_content: str
     instruction: str
+
+class AdminLogin(BaseModel):
+    password: str
+
+class EnvUpdate(BaseModel):
+    google_api_key: Optional[str] = None
+    linkedin_access_token: Optional[str] = None

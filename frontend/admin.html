@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Control Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+    <div class="admin-layout">
+        <header class="app-header admin-header">
+            <div class="logo">Admin <span class="logo-accent">Panel</span></div>
+            <a href="index.html" class="back-link">← Back to App</a>
+        </header>
+
+        <!-- Login Section -->
+        <main class="grid-layout hidden" id="login-section">
+            <div class="glass-card login-card">
+                <h2 class="card-title">Secure Access</h2>
+                <p class="section-subtitle">Authentication required to manage system variables.</p>
+                <div class="field-group mt-4">
+                    <input type="password" id="admin-password" placeholder="Enter Secure Password" class="mini-input full-width">
+                </div>
+                <button id="btn-login" class="btn btn-primary full-width mt-3">Authenticate</button>
+                <div id="login-error" class="error-text text-center mt-3 hidden">Incorrect password. Access Denied.</div>
+            </div>
+        </main>
+
+        <!-- Dashboard Section -->
+        <main class="grid-layout hidden" id="dashboard-section">
+            <div class="glass-card">
+                <h2 class="card-title">System Status</h2>
+                <div class="status-grid" id="status-container">
+                    <div class="status-item">Loading status...</div>
+                </div>
+
+                <h2 class="card-title" style="margin-top: 3rem;">API Configuration</h2>
+                <p class="section-subtitle">Dynamically update your .env file keys.</p>
+                
+                <div class="field-group">
+                    <label class="field-label">Google Gemini API Key</label>
+                    <input type="password" id="input-google-key" placeholder="AIzaSy..." class="mini-input full-width">
+                </div>
+                
+                <div class="field-group mt-3">
+                    <label class="field-label">LinkedIn Access Token</label>
+                    <input type="password" id="input-linkedin-key" placeholder="AQV..." class="mini-input full-width">
+                </div>
+                
+                <button id="btn-save-keys" class="btn btn-primary full-width mt-4">Save & Restart Services</button>
+                <div id="action-feedback" class="text-center mt-3 hidden"></div>
+                
+                <button id="btn-logout" class="btn btn-secondary full-width mt-3">Logout</button>
+            </div>
+        </main>
+    </div>
+    <script src="admin.js"></script>
+</body>
+</html>
