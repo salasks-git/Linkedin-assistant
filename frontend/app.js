@@ -15,21 +15,71 @@ const liImageGrid = document.getElementById('li-image-grid');
 let isProcessing = false;
 let selectedImages = [];
 
+// Dynamic references
+const resourcePersonsInput = document.getElementById('resource-persons');
+const mentorsInput = document.getElementById('mentors');
+const coordinatorsInput = document.getElementById('coordinators');
+const promptSelectorContainer = document.getElementById('dynamic-prompt-selector');
+
+// Chat references
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const btnChatSend = document.getElementById('btn-chat-send');
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     fetchPosts();
+    loadPrompts(); // Load style chips from backend
     setupEventListeners();
 });
 
+async function loadPrompts() {
+    try {
+        const response = await fetch(`${API_BASE}/posts/prompts`);
+        const data = await response.json();
+        
+        if (data.prompts && data.prompts.length > 0) {
+            renderPromptChips(data.prompts);
+        }
+    } catch (error) {
+        console.error('Error loading prompts:', error);
+        promptSelectorContainer.innerHTML = '<span class="error-text">Failed to load styles.</span>';
+    }
+}
+
+function renderPromptChips(prompts) {
+    promptSelectorContainer.innerHTML = '';
+    
+    prompts.forEach((key, index) => {
+        const label = document.createElement('label');
+        label.className = 'prompt-option';
+        
+        const isChecked = key === 'humanized' ? 'checked' : '';
+        // Prettify keys: project_learning -> Project Learning
+        const displayTitle = key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        
+        label.innerHTML = `
+            <input type="radio" name="prompt-type" value="${key}" ${isChecked}>
+            <span class="prompt-chip">${displayTitle}</span>
+        `;
+        promptSelectorContainer.appendChild(label);
+    });
+}
+
 function setupEventListeners() {
-    // Real-time Preview logic
-    let debounceTimer;
-    postContent.addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(handlePreview, 500);
+    // Sync Preview edit changes back to history logic
+    liPostText.addEventListener('input', () => {
+        handlePreview(); // Still triggers analysis
     });
 
-    // AI Drafting
+    // AI Drafting - Enter to draft, Shift+Enter for new line
+    aiTopic.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleAIDraft();
+        }
+    });
+
     btnAIDraft.addEventListener('click', handleAIDraft);
 
     // Saving
@@ -37,6 +87,15 @@ function setupEventListeners() {
 
     // Image Input
     imageInput.addEventListener('change', handleImageUpload);
+
+    // Chat Refinement
+    btnChatSend.addEventListener('click', handleAIRefine);
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAIRefine();
+        }
+    });
 }
 
 // API Functions
@@ -51,12 +110,9 @@ async function fetchPosts() {
 }
 
 async function handlePreview() {
-    const content = postContent.value;
+    const content = liPostText.innerText; // Get text from contenteditable
     
-    // Update LinkedIn Preview immediately
-    updateLinkedInPreview(content);
-
-    if (!content.trim()) {
+    if (!content.trim() || content === 'Draft your professional story...') {
         reportContainer.innerHTML = '<p class="placeholder-text">Start typing to see real-time professional analysis...</p>';
         return;
     }
@@ -122,18 +178,40 @@ async function handleAIDraft() {
     if (!topic || isProcessing) return;
 
     // Get selected prompt type
-    const selectedPrompt = document.querySelector('input[name="prompt-type"]:checked').value;
+    const selectedPromptEl = document.querySelector('input[name="prompt-type"]:checked');
+    const selectedPrompt = selectedPromptEl ? selectedPromptEl.value : 'humanized';
 
-    setLoading(true, 'btn-ai-draft', 'Drafting...');
-    postContent.value = ''; // Clear for streaming
+    setLoading(true, 'btn-ai-draft', 'Processing...');
+    liPostText.innerHTML = ''; // Clear for streaming
     
     try {
+        // Step 1: Extract Metadata (Mentors, etc.) if fields are empty
+        if (!resourcePersonsInput.value.trim() && !mentorsInput.value.trim() && !coordinatorsInput.value.trim()) {
+            try {
+                const extractionRes = await fetch(`${API_BASE}/posts/extract-metadata`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: topic })
+                });
+                const meta = await extractionRes.json();
+                if (meta.resource_persons) resourcePersonsInput.value = meta.resource_persons;
+                if (meta.mentors) mentorsInput.value = meta.mentors;
+                if (meta.coordinators) coordinatorsInput.value = meta.coordinators;
+            } catch (e) {
+                console.warn('Metadata extraction failed, continuing with draft...', e);
+            }
+        }
+
+        // Step 2: Generate Draft
         const response = await fetch(`${API_BASE}/posts/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 topic,
-                prompt_type: selectedPrompt 
+                prompt_type: selectedPrompt,
+                resource_persons: resourcePersonsInput.value.trim(),
+                mentors: mentorsInput.value.trim(),
+                coordinators: coordinatorsInput.value.trim()
             })
         });
 
@@ -155,24 +233,88 @@ async function handleAIDraft() {
                 break; // Stop processing the stream on error
             }
             
-            postContent.value += chunk;
+            liPostText.innerText += chunk;
             
-            // Re-trigger preview and LinkedIn layout update for each chunk
+            // Re-trigger analysis
             handlePreview();
         }
         
-        aiTopic.value = '';
+        // Removed aiTopic.value = ''; (Persistent input)
     } catch (error) {
         console.error('Error generating AI draft:', error);
-        postContent.value = `Error: ${error.message}. Please check your connection.`;
+        liPostText.value = `Error: ${error.message}. Please check your connection.`;
     } finally {
         setLoading(false, 'btn-ai-draft', 'Draft with AI');
     }
 }
 
+async function handleAIRefine() {
+    const instruction = chatInput.value.trim();
+    const currentDraft = liPostText.innerText.trim();
+    
+    if (!instruction || !currentDraft || isProcessing) return;
+
+    // UI Updates
+    addChatMessage(instruction, 'user');
+    chatInput.value = '';
+    setLoading(true);
+
+    try {
+        const response = await fetch(`${API_BASE}/posts/refine`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                current_content: currentDraft,
+                instruction: instruction
+            })
+        });
+
+        if (!response.body) throw new Error('Response body is null');
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        liPostText.innerHTML = ''; // Start overwriting with refinement
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            
+            if (chunk.includes('[SERVICE_ERROR]')) {
+                const errorMsg = chunk.replace('[SERVICE_ERROR]', '').trim();
+                showServiceAlert(errorMsg);
+                break;
+            }
+            
+            liPostText.innerText += chunk;
+            handlePreview(); // Analysis update
+        }
+        
+        addChatMessage("Draft updated! Anything else?", 'ai');
+
+    } catch (error) {
+        console.error('Error refining draft:', error);
+        addChatMessage("Sorry, I had trouble updating the draft. Please try again.", 'ai');
+    } finally {
+        setLoading(false);
+    }
+}
+
+function addChatMessage(text, sender) {
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble ${sender}`;
+    bubble.innerText = text;
+    chatMessages.appendChild(bubble);
+    
+    // Auto-scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
 async function handleSavePost() {
-    const content = postContent.value.trim();
-    if (!content || isProcessing) return;
+    const content = liPostText.innerText.trim();
+    if (!content || isProcessing || content === 'Draft your professional story...') return;
 
     setLoading(true, 'btn-save-post', 'Saving...');
     try {
@@ -181,7 +323,7 @@ async function handleSavePost() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content })
         });
-        postContent.value = '';
+        liPostText.innerHTML = 'Draft your professional story...';
         reportContainer.innerHTML = '<p class="placeholder-text">Start typing to see real-time professional analysis...</p>';
         fetchPosts();
     } catch (error) {

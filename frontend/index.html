@@ -23,21 +23,30 @@
                 <p class="section-subtitle">Draft your professional story. Use the AI to ignite ideas.</p>
                 
                 <div class="ai-controls">
-                    <p class="ai-tip">Select a style and topic to generate a draft via Google Gemini.</p>
+                    <p class="ai-tip">Select a style and fill in its context to generate your draft.</p>
                     
-                    <div class="prompt-selector">
-                        <label class="prompt-option">
-                            <input type="radio" name="prompt-type" value="humanized" checked>
-                            <span class="prompt-chip">Advanced Human</span>
-                        </label>
-                        <label class="prompt-option">
-                            <input type="radio" name="prompt-type" value="simple">
-                            <span class="prompt-chip">Simple / Direct</span>
-                        </label>
+                    <!-- Dynamic chips will be loaded here -->
+                    <div id="dynamic-prompt-selector" class="prompt-selector">
+                        <div class="loading-shimmer">Loading styles...</div>
                     </div>
 
-                    <div class="input-group">
-                        <input type="text" id="ai-topic" placeholder="e.g. Leadership in Tech">
+                    <div class="metadata-grid">
+                        <div class="input-field">
+                            <label for="resource-persons">Resource Persons</label>
+                            <input type="text" id="resource-persons" placeholder="e.g. Dr. Jane Smith, John Doe">
+                        </div>
+                        <div class="input-field">
+                            <label for="mentors">Mentors</label>
+                            <input type="text" id="mentors" placeholder="e.g. Prof. Alan, Sarah Chen">
+                        </div>
+                        <div class="input-field">
+                            <label for="coordinators">Coordinators</label>
+                            <input type="text" id="coordinators" placeholder="e.g. Tech Club, Dept head">
+                        </div>
+                    </div>
+
+                    <div class="input-group main-input vertical">
+                        <textarea id="ai-topic" placeholder="Describe your experience or topic in detail... (Shift+Enter for new line, Enter to Draft)"></textarea>
                         <button id="btn-ai-draft" class="btn btn-secondary">Draft with AI</button>
                     </div>
                 </div>
@@ -50,11 +59,7 @@
                     </label>
                 </div>
 
-                <textarea id="post-content" placeholder="Edit your draft here..."></textarea>
-                
-                <div class="actions">
-                    <button id="btn-save-post" class="btn btn-primary">Save to Queue</button>
-                </div>
+                <!-- Removed old post-content textarea -->
             </section>
 
             <!-- Preview/Report Section -->
@@ -79,7 +84,7 @@
                             <span class="li-more">•••</span>
                         </div>
                         
-                        <div id="li-post-text" class="li-content">
+                        <div id="li-post-text" class="li-content" contenteditable="true">
                             Excited to share that I've been working on this new LinkedIn Assistant! 🚀
                         </div>
 
@@ -103,6 +108,23 @@
                             <button class="li-action-btn"><span class="li-action-icon">♻️</span><span>Repost</span></button>
                             <button class="li-action-btn"><span class="li-action-icon">➡️</span><span>Send</span></button>
                         </div>
+                    </div>
+                </div>
+
+                <div class="preview-actions">
+                    <button id="btn-save-post" class="btn btn-primary full-width">Save Draft to Queue</button>
+                </div>
+
+                <div class="ai-chat-section">
+                    <h3 class="chat-title">Refine with AI</h3>
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="chat-bubble ai">
+                            How can I help you perfect this draft? Try: "Make it more professional" or "Add 3 hashtags".
+                        </div>
+                    </div>
+                    <div class="chat-input-wrapper">
+                        <input type="text" id="chat-input" placeholder="Refine instruction...">
+                        <button id="btn-chat-send"><span>↗️</span></button>
                     </div>
                 </div>
 

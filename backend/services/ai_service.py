@@ -12,53 +12,96 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
-PROMPTS = {
-    "humanized": """
-    You are a professional LinkedIn Ghostwriter & humanised writing expert.
-    TASK: Write a short, humanized LinkedIn post about '{topic}' with a '{tone}' tone.
+from services.prompts import PROMPTS
 
-    # 🧬 HUMANIZER MANDATE (LITE)
-    Avoid AI-isms to make writing sound natural, authentic, and "human."
+async def extract_metadata(text: str):
+    """
+    Uses Gemini to extract resource_persons, mentors, and coordinators from a topic description.
+    Returns a dictionary of extracted entities.
+    """
+    if not GOOGLE_API_KEY:
+        return {}
 
-    ## 1. SOUL & PERSONALITY
-    - Have opinions. React to facts, don't just report them.
-    - Vary rhythm: Mix short punchy sentences with longer ones.
-    - Use "I" naturally ("I keep coming back to...", "Here's what gets me...").
-    - Acknowledge uncertainty or mixed feelings; let some "mess" in.
-    - Be specific about feelings (e.g., "unsettling," "inspiring," "genuinely don't know").
-
-    ## 2. PATTERNS TO ELIMINATE (STATISTICAL AI SLOP)
-    - NO Puffed Significance: Avoid "stands as a testament," "pivotal moment," "evolving landscape."
-    - NO -ing endings: Avoid tacking on "highlighting...," "ensuring...," "reflecting..."
-    - NO AI Vocab: Avoid "Additionally," "crucial," "delve," "fostering," "interplay," "tapestry," "underscore."
-    - NO Promo Fluff: Avoid "nestled in the heart of," "boasts a," "vibrant/rich."
-    - NO Multiples: Avoid "Rule of Three" and negative parallelisms ("Not only... but...").
-    - NO Formatting Slop: No em-dash overuse, no bold headings within sentences, no emojis in headers.
-
-    ## 3. CONSTRAINTS
-    - PRIVATE: Never include mobile numbers, registration links, or personal contact info.
-    - BRIEF: Under 800 characters. 
-    - HOOK: Start with a story, bold claim, or a reaction.
-    - CTA: End with a natural engagement question.
-    - HASHTAGS: 2-3 niche tags at the very end.
-
-    Human Style Ref: "I genuinely don't know how to feel about this one... the truth is probably somewhere boring in the middle - but I keep thinking about those agents."
-    """,
-    "simple": """
-    You are a professional LinkedIn Assistant.
-    TASK: Write a very simple, direct, and concise LinkedIn post about '{topic}' with a '{tone}' tone.
+    extraction_prompt = f"""
+    TASK: Extract names of specific roles from the following text and return them as a JSON object.
+    TEXT: "{text}"
+    
+    ROLES TO EXTRACT:
+    - resource_persons (Guest speakers, industry experts, main presenters)
+    - mentors (Professors, guides, teachers)
+    - coordinators (Organizers, department heads, student leads)
     
     RULES:
-    1. Stay under 500 characters.
-    2. Use simple, everyday language. No corporate jargon.
-    3. No complex formatting or puffed-up significance.
-    4. Start with a clear hook and end with a question.
-    5. Include 2 relevant hashtags.
-    6. NO SENSITIVE DATA: Zero phone numbers or links.
+    1. Return ONLY a valid JSON object.
+    2. Format: {{ "resource_persons": "name1, name2", "mentors": "name1", "coordinators": "name1" }}
+    3. If a role is not mentioned, use an empty string.
+    4. If no names are found, return all empty strings.
     """
-}
+    
+    try:
+        model = genai.GenerativeModel(MODEL_NAME)
+        # Low temperature for precise extraction
+        response = await model.generate_content_async(
+            extraction_prompt, 
+            generation_config={"temperature": 0.1}
+        )
+        
+        import json
+        import re
+        
+        # Extract JSON from the response text (it might be wrapped in markdown blocks)
+        json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group())
+        return {}
+    except Exception as e:
+        print(f"Extraction Error: {e}")
+        return {}
 
-async def generate_linkedin_draft(topic: str, tone: str = "professional", prompt_type: str = "humanized"):
+async def refine_linkedin_draft(current_content: str, instruction: str):
+    """
+    Refines an existing draft based on user instructions while maintaining LinkedIn best practices.
+    """
+    if not GOOGLE_API_KEY:
+        yield "Error: GOOGLE_API_KEY is not set."
+        return
+
+    refine_prompt = f"""
+    You are a professional LinkedIn Editor.
+    
+    CURRENT DRAFT:
+    ---
+    {current_content}
+    ---
+    
+    USER INSTRUCTION: "{instruction}"
+    
+    TASK: Rewrite the draft by strictly following the user instruction.
+    Maintain the "Humanized" writing style (no AI jargon, varying rhythm, soul).
+    Keep character counts professional (under 3000).
+    Return ONLY the new draft text.
+    """
+    
+    try:
+        model = genai.GenerativeModel(MODEL_NAME)
+        response = await model.generate_content_async(refine_prompt, stream=True)
+        
+        async for chunk in response:
+            try:
+                if chunk.text:
+                    yield chunk.text
+            except ValueError:
+                yield "[SERVICE_ERROR] Safety Block: The AI refused this refinement."
+                
+    except Exception as e:
+        yield f"[SERVICE_ERROR] Refinement Error: {str(e)}"
+
+async def generate_linkedin_draft(
+    topic: str, 
+    tone: str = "professional", 
+    prompt_type: str = "humanized",
+    metadata: dict = None
+):
     """
     Generates a LinkedIn post draft using Google's Gemini API with streaming.
     """
@@ -66,9 +109,29 @@ async def generate_linkedin_draft(topic: str, tone: str = "professional", prompt
         yield "Error: GOOGLE_API_KEY is not set. Please add it to your environment."
         return
 
+    # Prepare formatting context with defaults
+    context = {
+        "topic": topic,
+        "tone": tone,
+        "resource_persons": "",
+        "coordinators": "",
+        "mentors": ""
+    }
+    
+    # Merge metadata if provided
+    if metadata:
+        context.update(metadata)
+
     # Select the prompt style (default to humanized if type is unknown)
     template = PROMPTS.get(prompt_type, PROMPTS["humanized"])
-    prompt = template.format(topic=topic, tone=tone)
+    
+    # Safe formatting: ignore missing keys in the template
+    import string
+    class SafeDict(dict):
+        def __missing__(self, key):
+            return ""
+            
+    prompt = string.Formatter().vformat(template, (), SafeDict(context))
     
     try:
         model = genai.GenerativeModel(MODEL_NAME)

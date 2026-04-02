@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 import models, schemas, database
 from database import engine, get_db
 from services import ai_service
+from services.prompts import PROMPTS
 import re
 
 # Create database tables
@@ -33,6 +34,11 @@ app.add_middleware(
 def read_root():
     return {"message": "LinkedIn Assistant Backend is running!"}
 
+@app.get("/posts/prompts")
+def get_prompts():
+    """Returns the list of available prompt keys."""
+    return {"prompts": list(PROMPTS.keys())}
+
 @app.post("/posts/", response_model=schemas.Post)
 def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     db_post = models.Post(content=post.content, status="draft")
@@ -45,10 +51,39 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
 def get_posts(db: Session = Depends(get_db)):
     return db.query(models.Post).all()
 
+@app.post("/posts/extract-metadata")
+async def extract_metadata(payload: dict = Body(...)):
+    """Extract metadata roles from description text."""
+    text = payload.get("text", "")
+    if not text:
+        return {}
+    return await ai_service.extract_metadata(text)
+
+@app.post("/posts/refine")
+async def refine_post(request: schemas.AIRefineRequest):
+    """Refine an existing draft based on user instruction."""
+    return StreamingResponse(
+        ai_service.refine_linkedin_draft(request.current_content, request.instruction),
+        media_type="text/plain"
+    )
+
 @app.post("/posts/generate")
 async def generate_post(request: schemas.AIDraftRequest):
+    # Extract metadata for student-style prompts
+    metadata = {
+        "resource_persons": request.resource_persons,
+        "coordinators": request.coordinators,
+        "mentors": request.mentors,
+        "tone": request.tone
+    }
+    
     return StreamingResponse(
-        ai_service.generate_linkedin_draft(request.topic, request.tone, request.prompt_type),
+        ai_service.generate_linkedin_draft(
+            request.topic, 
+            request.tone, 
+            request.prompt_type,
+            metadata=metadata
+        ),
         media_type="text/plain"
     )
 

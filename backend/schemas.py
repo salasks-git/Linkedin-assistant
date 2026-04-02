@@ -30,3 +30,10 @@ class AIDraftRequest(BaseModel):
     topic: str
     tone: Optional[str] = "professional"
     prompt_type: Optional[str] = "humanized"
+    resource_persons: Optional[str] = ""
+    coordinators: Optional[str] = ""
+    mentors: Optional[str] = ""
+
+class AIRefineRequest(BaseModel):
+    current_content: str
+    instruction: str
