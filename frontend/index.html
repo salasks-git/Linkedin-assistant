@@ -1,144 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LinkedIn Assistant | Native JS</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
     <div class="app-shell">
         <div class="main-content">
-        <header class="header">
-            <h1 class="title">LinkedIn Assistant</h1>
-            <div class="user-info">
-                <span class="session-badge">Session Active: <span class="premium-text">Premium User</span></span>
-            </div>
-        </header>
-
-        <main class="grid-layout">
-            <!-- Editor Section -->
-            <section class="post-editor glass-card">
-                <h2 class="section-title">Craft New Content</h2>
-                <p class="section-subtitle">Draft your professional story. Use the AI to ignite ideas.</p>
-                
-                <div class="ai-controls">
-                    <p class="ai-tip">Select a style and fill in its context to generate your draft.</p>
-                    
-                    <!-- Dynamic chips will be loaded here -->
-                    <div id="dynamic-prompt-selector" class="prompt-selector">
-                        <div class="loading-shimmer">Loading styles...</div>
-                    </div>
-
-                    <div class="metadata-grid">
-                        <div class="input-field">
-                            <label for="resource-persons">Resource Persons</label>
-                            <input type="text" id="resource-persons" placeholder="e.g. Dr. Jane Smith, John Doe">
-                        </div>
-                        <div class="input-field">
-                            <label for="mentors">Mentors</label>
-                            <input type="text" id="mentors" placeholder="e.g. Prof. Alan, Sarah Chen">
-                        </div>
-                        <div class="input-field">
-                            <label for="coordinators">Coordinators</label>
-                            <input type="text" id="coordinators" placeholder="e.g. Tech Club, Dept head">
-                        </div>
-                    </div>
-
-                    <div class="input-group main-input vertical">
-                        <textarea id="ai-topic" placeholder="Describe your experience or topic in detail... (Shift+Enter for new line, Enter to Draft)"></textarea>
-                        <button id="btn-ai-draft" class="btn btn-secondary">Draft with AI</button>
-                    </div>
+            <header class="header">
+                <h1 class="title">Salas</h1>
+                <div class="user-info">
+                    <span class="session-badge">Session Active: <span class="premium-text">Premium User</span></span>
                 </div>
+            </header>
 
-                <div class="image-upload-wrapper">
-                    <label for="image-input" class="file-input-label">
-                        <span class="upload-icon">🖼️</span>
-                        <span>Add images to your post</span>
-                        <input type="file" id="image-input" accept="image/*" multiple>
-                    </label>
-                </div>
+            <main class="grid-layout">
+                <!-- Editor Section -->
+                <section class="post-editor glass-card">
+                    <h2 class="section-title">Craft New Content</h2>
+                    <p class="section-subtitle">Draft your professional story. Use the AI to ignite ideas.</p>
 
-                <!-- Removed old post-content textarea -->
-            </section>
+                    <div class="ai-controls">
+                        <p class="ai-tip">Select a style and fill in its context to generate your draft.</p>
 
-            <!-- Preview/Report Section -->
-            <aside class="preview-report glass-card">
-                <h2 class="section-title sidebar-title">LinkedIn Preview</h2>
-                
-                <div id="linkedin-preview-container">
-                    <div class="linkedin-post">
-                        <div class="li-header">
-                            <div class="li-user-block">
-                                <div class="li-avatar">S</div>
-                                <div class="li-user-meta">
-                                    <span class="li-name">Salas Ks <span class="li-badge">• You</span></span>
-                                    <span class="li-headline">B.Tech CS@CCE |IV Rep| IEDC ,Mulearn & Tinke...</span>
-                                    <div class="li-time-row">
-                                        <span>2w</span>
-                                        <span>•</span>
-                                        <span>🌐</span>
+                        <!-- Dynamic chips will be loaded here -->
+                        <div id="dynamic-prompt-selector" class="prompt-selector">
+                            <div class="loading-shimmer">Loading styles...</div>
+                        </div>
+
+                        <div class="metadata-grid">
+                            <div class="input-field">
+                                <label for="resource-persons">Resource Persons</label>
+                                <input type="text" id="resource-persons" placeholder="e.g. Dr. Jane Smith, John Doe">
+                            </div>
+                            <div class="input-field">
+                                <label for="mentors">Mentors</label>
+                                <input type="text" id="mentors" placeholder="e.g. Prof. Alan, Sarah Chen">
+                            </div>
+                            <div class="input-field">
+                                <label for="coordinators">Coordinators</label>
+                                <input type="text" id="coordinators" placeholder="e.g. Tech Club, Dept head">
+                            </div>
+                        </div>
+
+                        <div class="input-group main-input vertical">
+                            <textarea id="ai-topic"
+                                placeholder="Describe your experience or topic in detail... (Shift+Enter for new line, Enter to Draft)"></textarea>
+                            <button id="btn-ai-draft" class="btn btn-secondary">Draft with AI</button>
+                        </div>
+                    </div>
+
+                    <div class="image-upload-wrapper">
+                        <label for="image-input" class="file-input-label">
+                            <span class="upload-icon">🖼️</span>
+                            <span>Add images to your post</span>
+                            <input type="file" id="image-input" accept="image/*" multiple>
+                        </label>
+                    </div>
+
+                    <!-- Removed old post-content textarea -->
+                </section>
+
+                <!-- Preview/Report Section -->
+                <aside class="preview-report glass-card">
+                    <h2 class="section-title sidebar-title">LinkedIn Preview</h2>
+
+                    <div id="linkedin-preview-container">
+                        <div class="linkedin-post">
+                            <div class="li-header">
+                                <div class="li-user-block">
+                                    <div class="li-avatar">S</div>
+                                    <div class="li-user-meta">
+                                        <span class="li-name">Salas Ks <span class="li-badge">• You</span></span>
+                                        <span class="li-headline">B.Tech CS@CCE |IV Rep| IEDC ,Mulearn & Tinke...</span>
+                                        <div class="li-time-row">
+                                            <span>2w</span>
+                                            <span>•</span>
+                                            <span>🌐</span>
+                                        </div>
                                     </div>
                                 </div>
+                                <div class="li-header-actions">
+                                    <button id="btn-copy-post" class="btn-copy-sm" title="Copy Content">📋</button>
+                                    <span class="li-more">•••</span>
+                                </div>
                             </div>
-                            <div class="li-header-actions">
-                                <button id="btn-copy-post" class="btn-copy-sm" title="Copy Content">📋</button>
-                                <span class="li-more">•••</span>
-                            </div>
-                        </div>
-                        
-                        <div id="li-post-text" class="li-content" contenteditable="true">
-                            Excited to share that I've been working on this new LinkedIn Assistant! 🚀
-                        </div>
 
-                        <div id="li-image-grid" class="li-media-grid" data-count="0">
-                            <!-- Images will be injected here -->
-                        </div>
-
-                        <div class="li-social-stats">
-                            <div class="li-stats-left">
-                                <div class="li-reaction-icons">👍❤️💡</div>
-                                <span>You and 19 others</span>
+                            <div id="li-post-text" class="li-content" contenteditable="true">
+                                Excited to share that I've been working on this new LinkedIn Assistant! 🚀
                             </div>
-                            <div class="li-stats-right">
-                                <span>2 comments</span>
-                            </div>
-                        </div>
 
-                        <div class="li-actions">
-                            <button class="li-action-btn"><span class="li-action-icon">👍</span><span>Like</span></button>
-                            <button class="li-action-btn"><span class="li-action-icon">💬</span><span>Comment</span></button>
-                            <button class="li-action-btn"><span class="li-action-icon">♻️</span><span>Repost</span></button>
-                            <button id="btn-publish-direct" class="li-action-btn"><span class="li-action-icon">➡️</span><span>Publish</span></button>
+                            <div id="li-image-grid" class="li-media-grid" data-count="0">
+                                <!-- Images will be injected here -->
+                            </div>
+
+                            <div class="li-social-stats">
+                                <div class="li-stats-left">
+                                    <div class="li-reaction-icons">👍❤️💡</div>
+                                    <span>You and 19 others</span>
+                                </div>
+                                <div class="li-stats-right">
+                                    <span>2 comments</span>
+                                </div>
+                            </div>
+
+                            <div class="li-actions">
+                                <button class="li-action-btn"><span
+                                        class="li-action-icon">👍</span><span>Like</span></button>
+                                <button class="li-action-btn"><span
+                                        class="li-action-icon">💬</span><span>Comment</span></button>
+                                <button class="li-action-btn"><span
+                                        class="li-action-icon">♻️</span><span>Repost</span></button>
+                                <button id="btn-publish-direct" class="li-action-btn"><span
+                                        class="li-action-icon">➡️</span><span>Publish</span></button>
+                            </div>
                         </div>
                     </div>
+
+                    <div class="preview-actions">
+                        <button id="btn-save-post" class="btn btn-primary full-width">Save Draft to Queue</button>
+                    </div>
+
+                    <div id="metrics-container" class="metrics-container">
+                        <!-- Metrics injected here -->
+                    </div>
+
+                </aside>
+            </main>
+
+            <!-- Dashboard Section -->
+            <section class="dashboard">
+                <div class="dashboard-header">
+                    <h2 class="section-title">Content Queue</h2>
+                    <span id="post-count" class="count-badge">0 Items</span>
                 </div>
-
-                <div class="preview-actions">
-                    <button id="btn-save-post" class="btn btn-primary full-width">Save Draft to Queue</button>
+                <div id="post-list" class="post-list">
+                    <!-- Posts will be injected here -->
                 </div>
-
-                <div id="metrics-container" class="metrics-container">
-                    <!-- Metrics injected here -->
-                </div>
-
-            </aside>
-        </main>
-
-        <!-- Dashboard Section -->
-        <section class="dashboard">
-            <div class="dashboard-header">
-                <h2 class="section-title">Content Queue</h2>
-                <span id="post-count" class="count-badge">0 Items</span>
-            </div>
-            <div id="post-list" class="post-list">
-                <!-- Posts will be injected here -->
-            </div>
-        </section>
+            </section>
 
         </div> <!-- End of .main-content -->
-        
+
         <!-- AI Sidekick Chat Panel -->
         <div id="ai-chat-panel" class="ai-chat-panel">
             <div class="chat-header">
@@ -165,4 +174,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>

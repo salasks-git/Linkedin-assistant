@@ -31,3 +31,9 @@ echo "👉 Access the app at: http://localhost:$FRONTEND_PORT"
 trap "kill $BACKEND_PID 2>/dev/null; exit" INT TERM EXIT
 
 (cd "$FRONTEND_DIR" && python3 -m http.server $FRONTEND_PORT)
+
+
+
+
+
+

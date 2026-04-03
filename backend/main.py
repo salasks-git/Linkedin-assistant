@@ -5,6 +5,7 @@ from dotenv import set_key, load_dotenv
 from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 import models, schemas, database
 from database import engine, get_db
 from services import ai_service
@@ -16,6 +17,9 @@ from fastapi.staticfiles import StaticFiles
 import uuid
 import json
 
+# Load environment variables early so admin creds can be read
+load_dotenv()
+
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
@@ -26,10 +30,15 @@ if not os.path.exists("uploads"):
     os.makedirs("uploads")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Add CORS middleware
+# Add CORS middleware — scoped to localhost only
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Temporary allow all for easy native development
+    allow_origins=[
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:3000",  # Keep for any tooling
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -189,6 +198,27 @@ async def publish_post(post_id: int, db: Session = Depends(get_db)):
         print(f"ERROR: LinkedIn Publish Failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/posts/{post_id}")
+def delete_post(post_id: int, db: Session = Depends(get_db)):
+    post = db.query(models.Post).filter(models.Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Clean up files from disk
+    if post.image_paths:
+        try:
+            filenames = json.loads(post.image_paths)
+            for fname in filenames:
+                path = os.path.join("uploads", fname)
+                if os.path.exists(path):
+                    os.remove(path)
+        except Exception as e:
+            print(f"ERROR deleting files for post {post_id}: {e}")
+            
+    db.delete(post)
+    db.commit()
+    return {"status": "success", "message": "Post and associated files deleted"}
+
 @app.post("/posts/publish-direct")
 async def publish_direct(
     text: str = Form(...),
@@ -206,8 +236,9 @@ async def publish_direct(
 # ==========================================
 # Admin Control Panel APIs
 # ==========================================
-ADMIN_PASSWORD = "Since2007@Kerala"
-ADMIN_TOKEN = "admin_secure_token_abc123"
+# Credentials loaded from .env — never hardcoded in source
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "changeme")
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "changeme_token")
 
 def verify_admin(x_admin_token: str = Header(...)):
     if x_admin_token != ADMIN_TOKEN:
@@ -221,9 +252,9 @@ def admin_login(login: schemas.AdminLogin):
 
 @app.get("/admin/status")
 def admin_status(token: str = Depends(verify_admin), db: Session = Depends(get_db)):
-    # Check DB
+    # Check DB — use sqlalchemy.text() to avoid deprecation warning
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db_status = "🟢 Online"
     except:
         db_status = "🔴 Offline"

@@ -13,6 +13,7 @@ const metricsContainer = document.getElementById('metrics-container');
 
 let isProcessing = false;
 let selectedImages = [];
+let postContentBuffer = ''; // SOURCE OF TRUTH — never read content from the DOM directly
 
 // Dynamic references
 const resourcePersonsInput = document.getElementById('resource-persons');
@@ -71,9 +72,10 @@ function renderPromptChips(prompts) {
 }
 
 function setupEventListeners() {
-    // Sync Preview edit changes back to history logic
+    // Sync buffer when the user manually edits the contenteditable preview
     liPostText.addEventListener('input', () => {
-        updateMetrics(); // Correct function for real-time analysis
+        postContentBuffer = getDOMText(liPostText); // Keep buffer in sync with manual edits
+        updateMetrics();
     });
 
     // AI Drafting - Enter to draft, Shift+Enter for new line
@@ -130,8 +132,30 @@ async function fetchPosts() {
     }
 }
 
+/**
+ * Serialize the contenteditable DOM to plain text, correctly handling
+ * <br> and block-level elements as newlines (unlike innerText which is browser-inconsistent).
+ */
+function getDOMText(el) {
+    let text = '';
+    for (const node of el.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            text += node.textContent;
+        } else if (node.nodeName === 'BR') {
+            text += '\n';
+        } else if (node.nodeName === 'DIV' || node.nodeName === 'P') {
+            // Block-level elements represent new lines
+            const inner = node.textContent || '';
+            text += '\n' + inner;
+        } else {
+            text += node.textContent || '';
+        }
+    }
+    return text;
+}
+
 async function updateMetrics() {
-    const content = liPostText.innerText;
+    const content = postContentBuffer;
     if (!content.trim() || content === 'Draft your professional story...') {
         metricsContainer.innerHTML = '';
         return;
@@ -179,7 +203,9 @@ function escapeHtml(text) {
 }
 
 function updateLinkedInPreview(text) {
+    postContentBuffer = text; // Keep buffer in sync
     if (!text.trim()) {
+        liPostText.textContent = '';
         liPostText.innerHTML = 'Draft your professional story...';
         return;
     }
@@ -187,7 +213,7 @@ function updateLinkedInPreview(text) {
     // First escape HTML special characters
     const escaped = escapeHtml(text);
     
-    // Then highlight hashtags safely
+    // Then highlight hashtags safely — DOM is display only, buffer holds the raw text
     const formatted = escaped.replace(/#(\w+)/g, '<span class="li-hashtag">#$1</span>');
     liPostText.innerHTML = formatted;
 }
@@ -227,7 +253,9 @@ async function handleAIDraft() {
     const selectedPrompt = selectedPromptEl ? selectedPromptEl.value : 'humanized';
 
     setLoading(true, 'btn-ai-draft', 'Processing...');
-    liPostText.innerHTML = ''; // Clear for streaming
+    // Reset buffer + clear DOM for fresh streaming
+    postContentBuffer = '';
+    liPostText.textContent = '';
 
     // Smooth scroll to results immediately
     document.getElementById('linkedin-preview-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -278,17 +306,34 @@ async function handleAIDraft() {
             if (chunk.includes('[SERVICE_ERROR]')) {
                 const errorMsg = chunk.replace('[SERVICE_ERROR]', '').trim();
                 showServiceAlert(errorMsg);
-                break; // Stop processing the stream on error
+                break;
             }
             
-            liPostText.innerText += chunk;
+            // ✅ FIX: Append to JS buffer (source of truth), then update DOM for display
+            postContentBuffer += chunk;
+            liPostText.textContent = postContentBuffer;
+            liPostText.scrollTop = liPostText.scrollHeight;
             updateMetrics();
         }
         
-        // Removed aiTopic.value = ''; (Persistent input)
+        // ✅ FIX: Flush the decoder — { stream: true } can hold back bytes for
+        // multi-byte unicode characters at chunk boundaries. Without this flush,
+        // the last few bytes of the AI response are silently dropped.
+        const remaining = decoder.decode();
+        if (remaining) {
+            postContentBuffer += remaining;
+        }
+        
+        // No destructive .trim() — preserve all whitespace the AI generated.
+        // Buffer is already the final content. Update DOM one last time to apply hashtag highlighting.
+        const finalEscaped = escapeHtml(postContentBuffer);
+        liPostText.innerHTML = finalEscaped.replace(/#(\w+)/g, '<span class="li-hashtag">#$1</span>');
+        updateMetrics();
+        
     } catch (error) {
         console.error('Error generating AI draft:', error);
-        liPostText.innerText = `[Error]: ${error.message} - Please check your backend connection or refresh your API keys.`;
+        postContentBuffer = '';
+        liPostText.textContent = `[Error]: ${error.message} - Please check your backend connection or refresh your API keys.`;
     } finally {
         setLoading(false, 'btn-ai-draft', 'Draft with AI');
     }
@@ -296,7 +341,7 @@ async function handleAIDraft() {
 
 async function handleAIRefine() {
     const instruction = chatInput.value.trim();
-    const currentDraft = liPostText.innerText.trim();
+    const currentDraft = postContentBuffer; // ✅ FIX: Read from buffer, not DOM
     
     if (!instruction || !currentDraft || isProcessing) return;
 
@@ -323,7 +368,9 @@ async function handleAIRefine() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         
-        liPostText.innerHTML = ''; // Start overwriting with refinement
+        // ✅ FIX: Reset buffer and clear DOM for fresh refinement stream
+        postContentBuffer = '';
+        liPostText.textContent = '';
         
         while (true) {
             const { done, value } = await reader.read();
@@ -337,9 +384,21 @@ async function handleAIRefine() {
                 break;
             }
             
-            liPostText.innerText += chunk;
+            // ✅ FIX: Append to buffer, update DOM from buffer
+            postContentBuffer += chunk;
+            liPostText.textContent = postContentBuffer;
             updateMetrics();
         }
+
+        // ✅ FIX: Flush TextDecoder to capture any remaining multi-byte chars
+        const remaining = decoder.decode();
+        if (remaining) {
+            postContentBuffer += remaining;
+        }
+
+        // Final: apply hashtag highlighting
+        const finalEscaped = escapeHtml(postContentBuffer);
+        liPostText.innerHTML = finalEscaped.replace(/#(\w+)/g, '<span class="li-hashtag">#$1</span>');
         
         addChatMessage("Draft updated! Anything else?", 'ai');
 
@@ -362,9 +421,18 @@ function addChatMessage(text, sender) {
 }
 
 async function handleSavePost() {
-    const content = liPostText.innerText.trim();
+    // ✅ FIX: Sync content from DOM innerText as a safety net before saving.
+    // If the user edited the contenteditable after streaming, innerText is
+    // the ground truth for what they actually see. Pick whichever is longer.
+    const domText = liPostText.innerText || '';
+    if (domText.length > postContentBuffer.length) {
+        postContentBuffer = domText;
+    }
+
+    const content = postContentBuffer.trim();
     if (!content || isProcessing || content === 'Draft your professional story...') return;
 
+    console.log(`DEBUG: Saving draft - length ${content.length}`);
     setLoading(true, 'btn-save-post', 'Saving...');
     
     const formData = new FormData();
@@ -395,7 +463,8 @@ async function handleSavePost() {
             btn.style.background = '';
             setLoading(false, 'btn-save-post', 'Save Draft to Queue');
             
-            // Clear and refresh
+            // Clear buffer + DOM and refresh
+            postContentBuffer = '';
             liPostText.innerHTML = 'Draft your professional story...';
             liImageGrid.innerHTML = '';
             liImageGrid.setAttribute('data-count', '0');
@@ -411,17 +480,55 @@ async function handleSavePost() {
     }
 }
 
-async function handlePublish(id) {
+async function handlePublish(id, event) {
     if (isProcessing) return;
 
+    const btn = event.currentTarget || event.target;
+    const originalText = btn.innerHTML;
+    
     setLoading(true);
+    btn.disabled = true;
+    btn.innerHTML = `<span class="loading-spinner"></span> Publishing...`;
+    
     try {
-        await fetch(`${API_BASE}/posts/${id}/publish`, { method: 'POST' });
-        fetchPosts();
+        const response = await fetch(`${API_BASE}/posts/${id}/publish`, { method: 'POST' });
+        if (!response.ok) throw new Error('Publishing failed');
+        
+        btn.innerHTML = `✅ Posted`;
+        btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+        
+        setTimeout(() => {
+            fetchPosts();
+        }, 1500);
     } catch (error) {
         console.error('Error publishing post:', error);
+        btn.innerHTML = `❌ Failed`;
+        btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.background = '';
+            btn.disabled = false;
+        }, 3000);
     } finally {
         setLoading(false);
+    }
+}
+
+async function handleDeletePost(id) {
+    if (!confirm("Are you sure you want to delete this draft and its images?")) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/posts/${id}`, {
+            method: 'DELETE'
+        });
+        if (response.ok) {
+            fetchPosts();
+        } else {
+            alert("Failed to delete post.");
+        }
+    } catch (error) {
+        console.error('Error deleting post:', error);
+        alert("Error connecting to backend.");
     }
 }
 
@@ -458,6 +565,7 @@ function renderPosts(posts) {
         
         card.innerHTML = `
             <div class="status-badge status-${post.status.toLowerCase()}">${post.status}</div>
+            <button class="btn-delete-float" onclick="handleDeletePost(${post.id})" title="Delete Draft">✕</button>
             <p class="post-content">${post.content}</p>
             ${imagesHtml}
             <div class="post-footer">
@@ -466,7 +574,7 @@ function renderPosts(posts) {
                     <span class="meta-value">${new Date(post.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 </div>
                 ${post.status.toLowerCase() === 'draft' ? 
-                    `<button class="btn btn-action" onclick="handlePublish(${post.id})">Post Now</button>` : ''}
+                    `<button class="btn btn-action" onclick="handlePublish(${post.id}, event)">Post Now</button>` : ''}
             </div>
         `;
         postList.appendChild(card);
@@ -501,7 +609,7 @@ function showServiceAlert(message) {
 }
 
 async function handleCopyContent() {
-    const content = liPostText.innerText;
+    const content = postContentBuffer; // ✅ FIX: Read from buffer for accurate text
     try {
         await navigator.clipboard.writeText(content);
         
@@ -537,7 +645,14 @@ function setLoading(loading, btnId, text) {
 async function publishToLinkedIn() {
     if (isProcessing) return;
     
-    const content = liPostText.innerText;
+    // ✅ FIX: Sync from DOM innerText before publishing — ground truth for
+    // what the user actually sees in the editable preview panel.
+    const domText = liPostText.innerText || '';
+    if (domText.length > postContentBuffer.length) {
+        postContentBuffer = domText;
+    }
+
+    const content = postContentBuffer;
     if (!content.trim() || content === 'Draft your professional story...') {
         alert("Please draft some content before publishing.");
         return;

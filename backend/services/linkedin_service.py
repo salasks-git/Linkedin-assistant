@@ -1,7 +1,32 @@
 import os
+import re
 import httpx
+import unicodedata
 from typing import Optional, List, Dict, Any
 from fastapi import UploadFile
+
+
+def sanitize_for_linkedin(text: str) -> str:
+    """
+    Sanitize text for LinkedIn API commentary field.
+    LinkedIn's parser silently truncates on invisible/special Unicode characters
+    that AI models (like Gemini) routinely generate.
+    """
+    # Remove invisible Unicode control characters (Category Cf = formatting, Cc = control)
+    # but preserve legal whitespace: newlines (\n) and tabs (\t)
+    text = ''.join(
+        c for c in text
+        if unicodedata.category(c) not in ('Cf', 'Cc') or c in ('\n', '\t')
+    )
+    # Normalize line endings to Unix-style \n
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    # Remove zero-width and invisible marker characters explicitly
+    text = re.sub(r'[\u200b\u200c\u200d\ufeff\u00ad\u2028\u2029]', '', text)
+    # Collapse 3+ consecutive newlines to 2 (LinkedIn renders max 2 blank lines)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    # Hard limit: LinkedIn rejects commentary over 3000 characters
+    return text[:3000].strip()
+
 
 class LinkedInService:
     def __init__(self):
@@ -56,7 +81,7 @@ class LinkedInService:
             file_content = await file.read()
             import mimetypes
             content_type = mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
-            
+
             # Binary upload URLs do NOT require Authorization or LinkedIn API headers
             upload_headers = {
                 "Content-Type": content_type,
@@ -83,10 +108,21 @@ class LinkedInService:
                     urn = await self.upload_image(person_id, image_file)
                     image_urns.append(urn)
 
-        # Build the post payload
+        # ✅ FIX: Sanitize text before sending to prevent LinkedIn silent truncation
+        # on invisible Unicode characters (zero-width spaces, non-breaking spaces,
+        # line separators, etc.) that AI models like Gemini routinely output.
+        sanitized_text = sanitize_for_linkedin(text)
+
+        # DEBUG: Log exactly what is being sent so truncation is visible in logs
+        print(f"DEBUG: LinkedIn Publish Triggered")
+        print(f"DEBUG: Original Length: {len(text)} chars | Sanitized Length: {len(sanitized_text)} chars")
+        print(f"DEBUG: Payload Start: {sanitized_text[:80]}...")
+        print(f"DEBUG: Payload End:   ...{sanitized_text[-80:]}")
+
+        # Build the post payload with sanitized text (single clean payload)
         post_payload = {
             "author": author,
-            "commentary": text,
+            "commentary": sanitized_text,
             "visibility": "PUBLIC",
             "distribution": {
                 "feedDistribution": "MAIN_FEED",
@@ -125,8 +161,9 @@ class LinkedInService:
                 try:
                     error_data = response.json()
                     error_msg = error_data.get("message", response.text)
-                except:
+                except Exception:
                     error_msg = response.text
                 raise Exception(f"LinkedIn API error ({response.status_code}): {error_msg}")
+
 
 linkedin_svc = LinkedInService()
