@@ -6,3 +6,9 @@ python-multipart
 httpx
 python-dotenv
 google-generativeai
+psycopg2-binary
+cryptography
+slowapi
+authlib
+passlib
+bcrypt

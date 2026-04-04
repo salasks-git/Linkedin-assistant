@@ -5,20 +5,76 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LinkedIn Assistant | Native JS</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=7">
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap"
         rel="stylesheet">
 </head>
 
 <body>
+    <!-- Auth Overlays -->
+    <div id="gatekeeper-overlay" class="gatekeeper-overlay" style="display: none;">
+        <div class="glass-card login-card">
+            <div class="auth-tabs">
+                <button id="tab-login" class="auth-tab active">Log In</button>
+                <button id="tab-signup" class="auth-tab">Sign Up</button>
+            </div>
+            
+            <div id="auth-form-container">
+                <h2 id="auth-title" style="color: white; margin-bottom: 20px;">Welcome Back</h2>
+                
+                <div class="auth-input-group">
+                    <label for="auth-username">Username</label>
+                    <input type="text" id="auth-username" placeholder="Enter your username">
+                </div>
+                
+                <div class="auth-input-group">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" placeholder="Enter your password">
+                    <div id="auth-password-hint" class="input-hint" style="display: none;">
+                        🔒 Password must be at least 6 characters including letters and numbers.
+                    </div>
+                </div>
+                
+                <div class="auth-input-group">
+                    <label for="auth-master-key">Master Key</label>
+                    <input type="password" id="auth-master-key" placeholder="Enter global master key">
+                </div>
+
+                <div class="show-password-container">
+                    <input type="checkbox" id="show-password-toggle">
+                    <label for="show-password-toggle">Show Password</label>
+                </div>
+
+                <div id="signup-reminder" style="display: none; color: var(--accent); font-size: 0.85rem; margin-top: 10px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.2);">
+                    ⚠️ <strong>Important:</strong> Please remember your username and password carefully. They are private to your account!
+                </div>
+                
+                <button id="btn-auth-submit" class="btn btn-primary" style="margin-top: 20px; width: 100%;">Unlock Dashboard</button>
+                <p id="auth-error" class="error-msg" style="display:none; color: #ff5555; margin-top: 15px; font-size: 0.9rem;"></p>
+            </div>
+        </div>
+    </div>
+    
+    <div id="linkedin-connect-overlay" class="gatekeeper-overlay" style="display: none;">
+        <div class="glass-card login-card">
+            <h2 style="color: white;">Connect LinkedIn</h2>
+            <p style="color: #aaa; margin: 15px 0;">You need to connect your LinkedIn account to actually publish posts directly.</p>
+            <div style="display: flex; gap: 10px; flex-direction: column;">
+                <a href="/auth/linkedin" class="btn btn-primary" style="text-decoration: none; padding: 12px 24px; text-align: center;">Sign in with LinkedIn</a>
+            </div>
+        </div>
+    </div>
     <div class="app-shell">
         <div class="main-content">
             <header class="header">
-                <h1 class="title">Salas</h1>
+                <h1 id="app-header-title" class="title">Hii ...</h1>
                 <div class="user-info">
-                    <span class="session-badge">Session Active: <span class="premium-text">Premium User</span></span>
+                    <button id="btn-header-connect" class="btn-linkedin-sm" style="display: none;">Connect LinkedIn</button>
+                    <button id="btn-logout" class="btn-logout-sm" title="Logout">Log out</button>
                 </div>
+            </header>
+
             </header>
 
             <main class="grid-layout">
@@ -35,18 +91,24 @@
                             <div class="loading-shimmer">Loading styles...</div>
                         </div>
 
-                        <div class="metadata-grid">
+                        <div class="metadata-toggle">
+                            <button id="btn-metadata-expand" class="btn-text">
+                                <span class="icon">⚙️</span> Settings & Mentors <span class="chevron">▼</span>
+                            </button>
+                        </div>
+
+                        <div id="advanced-metadata" class="metadata-grid collapsed">
                             <div class="input-field">
                                 <label for="resource-persons">Resource Persons</label>
-                                <input type="text" id="resource-persons" placeholder="e.g. Dr. Jane Smith, John Doe">
+                                <input type="text" id="resource-persons" placeholder="e.g. Dr. Jane Smith">
                             </div>
                             <div class="input-field">
                                 <label for="mentors">Mentors</label>
-                                <input type="text" id="mentors" placeholder="e.g. Prof. Alan, Sarah Chen">
+                                <input type="text" id="mentors" placeholder="e.g. Prof. Alan">
                             </div>
                             <div class="input-field">
                                 <label for="coordinators">Coordinators</label>
-                                <input type="text" id="coordinators" placeholder="e.g. Tech Club, Dept head">
+                                <input type="text" id="coordinators" placeholder="e.g. Tech Club">
                             </div>
                         </div>
 
@@ -76,9 +138,9 @@
                         <div class="linkedin-post">
                             <div class="li-header">
                                 <div class="li-user-block">
-                                    <div class="li-avatar">S</div>
+                                    <div class="li-avatar" id="app-preview-avatar">?</div>
                                     <div class="li-user-meta">
-                                        <span class="li-name">Salas Ks <span class="li-badge">• You</span></span>
+                                        <span class="li-name"><span id="app-preview-name">User</span> <span class="li-badge">• You</span></span>
                                         <span class="li-headline">B.Tech CS@CCE |IV Rep| IEDC ,Mulearn & Tinke...</span>
                                         <div class="li-time-row">
                                             <span>2w</span>
@@ -165,10 +227,40 @@
             </div>
         </div>
 
+        <!-- Full-Screen Draft Preview Modal -->
+        <div id="draft-modal" class="overlay" style="display: none; padding: 2rem; z-index: 3000;">
+            <div class="modal-content-wrapper glass-card">
+                <div class="modal-header">
+                    <button id="btn-close-draft" class="btn-back" title="Exit Preview">
+                        <span class="back-icon-circle">⟵</span>
+                        <span>Back</span>
+                    </button>
+                    <h2 class="modal-title">Review Draft</h2>
+                    <div style="width: 80px;"></div>
+                </div>
+                
+                <div class="modal-scroll-body">
+                    <div id="modal-image-grid" class="preview-media"></div>
+                    <div id="modal-post-content" class="li-content" style="font-size: 1.15rem; line-height: 1.8; padding: 1.5rem;"></div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button id="modal-publish-btn" class="btn btn-primary full-width">Post to LinkedIn Now</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Sticky Action Bar -->
+        <div class="mobile-sticky-bar">
+            <button id="sticky-ai-draft" class="sticky-btn btn-secondary">Draft</button>
+            <button id="sticky-publish" class="sticky-btn btn-primary">Publish</button>
+            <button id="sticky-save" class="sticky-btn btn-secondary">Save</button>
+        </div>
+
         <!-- Floating Summon Button -->
         <button id="btn-chat-toggle" class="btn-chat-summon">
             <span class="summon-icon">🤖</span>
-            <span class="summon-text">Refine with AI</span>
+            <span class="summon-text">Refine AI</span>
         </button>
     </div> <!-- End of .app-shell -->
 

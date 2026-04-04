@@ -1,4 +1,6 @@
-const API_BASE = 'http://localhost:8000';
+const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? `http://${window.location.hostname}:8000`
+    : window.location.origin.replace(':8080', ':8000');
 
 const loginSection = document.getElementById('login-section');
 const dashSection = document.getElementById('dashboard-section');
@@ -104,6 +106,41 @@ async function fetchStatus() {
                 <span class="status-value">${data.linkedin_api}</span>
             </div>
         `;
+
+        const healthContainer = document.getElementById('member-health-container');
+        if (data.members && data.members.length > 0) {
+            let html = `
+                <table class="health-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>LinkedIn Name</th>
+                            <th>Status</th>
+                            <th>Expiry</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.members.forEach(m => {
+                const badgeClass = m.status.includes('Active') ? 'badge-success' : 'badge-error';
+                html += `
+                    <tr>
+                        <td class="premium-text">${m.username}</td>
+                        <td style="color: #ccc">${m.name || '---'}</td>
+                        <td><span class="status-badge-mini ${badgeClass}">${m.status}</span></td>
+                        <td style="color: ${m.expires_in_days < 7 ? 'var(--error-glow)' : '#aaa'}">
+                            ${m.expires_in_days !== null ? `${m.expires_in_days} days left` : 'Expired'}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table>`;
+            healthContainer.innerHTML = html;
+        } else {
+            healthContainer.innerHTML = '<div class="status-item">No active LinkedIn connections found.</div>';
+        }
     } catch (error) {
         statusContainer.innerHTML = `<div class="error-text">Failed to connect to backend server. Is it running?</div>`;
     }

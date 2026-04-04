@@ -39,8 +39,40 @@ class AIRefineRequest(BaseModel):
     current_content: str
     instruction: str
 
+class UserSignup(BaseModel):
+    username: str
+    password: str
+    master_key: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+    master_key: str
+
+class UserOut(BaseModel):
+    id: str
+    username: Optional[str]
+    name: Optional[str]
+    has_linkedin: bool
+
+    class Config:
+        from_attributes = True
+
 class AdminLogin(BaseModel):
     password: str
+
+class LinkedInHealth(BaseModel):
+    username: str
+    name: Optional[str]
+    expires_in_days: Optional[int]
+    status: str
+
+class AdminStatus(BaseModel):
+    backend: str
+    database: str
+    google_api: str
+    linkedin_api: str
+    members: List[LinkedInHealth] = []
 
 class EnvUpdate(BaseModel):
     google_api_key: Optional[str] = None

@@ -36,23 +36,18 @@
                     <div class="status-item">Loading status...</div>
                 </div>
 
-                <h2 class="card-title" style="margin-top: 3rem;">API Configuration</h2>
-                <p class="section-subtitle">Dynamically update your .env file keys.</p>
-                
-                <div class="field-group">
-                    <label class="field-label">Google Gemini API Key</label>
-                    <input type="password" id="input-google-key" placeholder="AIzaSy..." class="mini-input full-width">
-                </div>
-                
-                <div class="field-group mt-3">
-                    <label class="field-label">LinkedIn Access Token</label>
-                    <input type="password" id="input-linkedin-key" placeholder="AQV..." class="mini-input full-width">
-                </div>
-                
                 <button id="btn-save-keys" class="btn btn-primary full-width mt-4">Save & Restart Services</button>
                 <div id="action-feedback" class="text-center mt-3 hidden"></div>
                 
-                <button id="btn-logout" class="btn btn-secondary full-width mt-3">Logout</button>
+                <h2 class="card-title" style="margin-top: 3rem;">Linked Member Health</h2>
+                <div id="member-health-container" class="mt-3">
+                    <div class="status-item">No members connected.</div>
+                </div>
+
+                <div class="admin-actions mt-5">
+                    <button id="btn-logout" class="btn btn-secondary full-width">Logout Admin Session</button>
+                </div>
+            </div>
             </div>
         </main>
     </div>

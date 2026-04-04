@@ -1,5 +1,5 @@
-import os
 import re
+import asyncio
 import httpx
 import unicodedata
 from typing import Optional, List, Dict, Any
@@ -9,22 +9,30 @@ from fastapi import UploadFile
 def sanitize_for_linkedin(text: str) -> str:
     """
     Sanitize text for LinkedIn API commentary field.
-    LinkedIn's parser silently truncates on invisible/special Unicode characters
-    that AI models (like Gemini) routinely generate.
+    1. Removes invisible/special Unicode control characters.
+    2. Escapes characters that LinkedIn treats as special symbols (mentors, formatting).
+       Without escaping, brackets and parentheses often trigger silent truncation.
     """
-    # Remove invisible Unicode control characters (Category Cf = formatting, Cc = control)
-    # but preserve legal whitespace: newlines (\n) and tabs (\t)
+    # Remove invisible Unicode control characters (Cf/Cc) but keep newlines/tabs
     text = ''.join(
         c for c in text
         if unicodedata.category(c) not in ('Cf', 'Cc') or c in ('\n', '\t')
     )
-    # Normalize line endings to Unix-style \n
+    
+    # Normalize line endings
     text = text.replace('\r\n', '\n').replace('\r', '\n')
-    # Remove zero-width and invisible marker characters explicitly
+    
+    # Remove zero-width marks
     text = re.sub(r'[\u200b\u200c\u200d\ufeff\u00ad\u2028\u2029]', '', text)
-    # Collapse 3+ consecutive newlines to 2 (LinkedIn renders max 2 blank lines)
+    
+    # Escape special characters that trigger LinkedIn parser truncation: ()[]*@<>\~_
+    # Prefixing with backslash tells LinkedIn to treat them as literals.
+    text = re.sub(r'([()\[\]*@<>\~_])', r'\\\1', text)
+    
+    # Collapse 3+ consecutive newlines
     text = re.sub(r'\n{3,}', '\n\n', text)
-    # Hard limit: LinkedIn rejects commentary over 3000 characters
+    
+    # Hard limit: 3000 chars (after escaping)
     return text[:3000].strip()
 
 
@@ -32,10 +40,10 @@ class LinkedInService:
     def __init__(self):
         self.api_base = "https://api.linkedin.com"
 
-    def _get_headers(self) -> Dict[str, str]:
-        token = os.getenv("LINKEDIN_ACCESS_TOKEN")
+    def _get_headers(self, custom_token: str = None) -> Dict[str, str]:
+        token = custom_token or os.getenv("LINKEDIN_ACCESS_TOKEN")
         if not token:
-            raise ValueError("LINKEDIN_ACCESS_TOKEN is not set in the environment.")
+            raise ValueError("LINKEDIN_ACCESS_TOKEN is not set in the environment or passed.")
         return {
             "Authorization": f"Bearer {token}",
             "LinkedIn-Version": "202504",
@@ -43,20 +51,22 @@ class LinkedInService:
             "Content-Type": "application/json",
         }
 
-    async def get_user_urn(self) -> str:
+    async def get_user_urn(self, token: str = None) -> str:
         """Fetch the authenticated user's URN via OpenID userinfo."""
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{self.api_base}/v2/userinfo",
-                headers=self._get_headers()
+                headers=self._get_headers(token)
             )
+            if response.status_code == 401:
+                raise Exception("LINKEDIN_UNAUTHORIZED")
             response.raise_for_status()
             data = response.json()
             return data["sub"]  # Returns the member sub ID like "MmJ2BQgTho"
 
-    async def upload_image(self, person_id: str, file: UploadFile) -> str:
+    async def upload_image(self, person_id: str, file: UploadFile, token: str = None) -> str:
         """Upload an image using the new Images API and return the image URN."""
-        headers = self._get_headers()
+        headers = self._get_headers(token)
 
         # Step 1: Initialize Upload
         init_payload = {
@@ -95,18 +105,21 @@ class LinkedInService:
 
             return image_urn
 
-    async def publish_post(self, text: str, images: List[UploadFile] = None) -> Dict[str, Any]:
+    async def publish_post(self, text: str, images: List[UploadFile] = None, token: str = None) -> Dict[str, Any]:
         """Publish a post using LinkedIn's current Posts API (/rest/posts)."""
-        person_id = await self.get_user_urn()
+        person_id = await self.get_user_urn(token)
         author = f"urn:li:person:{person_id}"
 
-        # Upload images if provided
+        # Upload images if provided (Parallel)
         image_urns = []
         if images and len(images) > 0:
-            for image_file in images:
-                if image_file.filename:  # Skip empty file entries
-                    urn = await self.upload_image(person_id, image_file)
-                    image_urns.append(urn)
+            # Create a list of upload tasks to run in parallel
+            upload_tasks = [
+                self.upload_image(person_id, img, token) 
+                for img in images if img.filename
+            ]
+            if upload_tasks:
+                image_urns = await asyncio.gather(*upload_tasks)
 
         # ✅ FIX: Sanitize text before sending to prevent LinkedIn silent truncation
         # on invisible Unicode characters (zero-width spaces, non-breaking spaces,
@@ -135,13 +148,20 @@ class LinkedInService:
 
         # Add images if uploaded
         if image_urns:
-            post_payload["content"] = {
-                "multiImage": {
-                    "images": [{"id": urn} for urn in image_urns]
+            if len(image_urns) == 1:
+                post_payload["content"] = {
+                    "media": {
+                        "id": image_urns[0]
+                    }
                 }
-            }
+            else:
+                post_payload["content"] = {
+                    "multiImage": {
+                        "images": [{"id": urn} for urn in image_urns]
+                    }
+                }
 
-        headers = self._get_headers()
+        headers = self._get_headers(token)
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(

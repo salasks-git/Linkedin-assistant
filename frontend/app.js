@@ -1,4 +1,6 @@
-const API_BASE = 'http://localhost:8000';
+// Dynamic API Detection — empty string forces relative paths, meaning it works on localhost AND ngrok seamlessly.
+const API_BASE = "";
+
 
 // DOM Elements
 const aiTopic = document.getElementById('ai-topic');
@@ -10,6 +12,7 @@ const imageInput = document.getElementById('image-input');
 const liPostText = document.getElementById('li-post-text');
 const liImageGrid = document.getElementById('li-image-grid');
 const metricsContainer = document.getElementById('metrics-container');
+const linkedinPreview = document.getElementById('linkedin-preview-container');
 
 let isProcessing = false;
 let selectedImages = [];
@@ -33,10 +36,63 @@ const btnPublishDirect = document.getElementById('btn-publish-direct');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    fetchPosts();
-    loadPrompts(); // Load style chips from backend
+    checkAuthStatus();
     setupEventListeners();
 });
+
+async function checkAuthStatus() {
+    try {
+        const res = await fetch(`${API_BASE}/auth/check`, {credentials: 'include'});
+        const data = await res.json();
+        
+        if (data.status === 'authenticated') {
+            document.getElementById('gatekeeper-overlay').style.display = 'none';
+            if (data.user && data.user.has_linkedin) {
+                document.getElementById('linkedin-connect-overlay').style.display = 'none';
+                fetchPosts();
+            } else {
+                // Silent state: Show connect overlay but no warning alerts for user
+                document.getElementById('linkedin-connect-overlay').style.display = 'flex';
+            }
+            
+            // Always load prompts once authenticated so the editor is ready
+            loadPrompts();
+            
+            // Update Header Title and LinkedIn Preview with username
+            const headerTitle = document.getElementById('app-header-title');
+            const previewName = document.getElementById('app-preview-name');
+            const previewAvatar = document.getElementById('app-preview-avatar');
+            const headerConnectBtn = document.getElementById('btn-header-connect');
+            
+            if (data.user) {
+                const displayName = data.user.name || data.user.username || "User";
+                if (headerTitle) headerTitle.innerText = `Hii ${displayName}`;
+                if (previewName) previewName.innerText = displayName;
+                if (previewAvatar) previewAvatar.innerText = displayName.charAt(0).toUpperCase();
+                
+                // Header Connection Button Logic
+                if (headerConnectBtn) {
+                    if (data.user.has_linkedin) {
+                        headerConnectBtn.innerText = "Linked ✅";
+                        headerConnectBtn.classList.add('linked');
+                        headerConnectBtn.onclick = null;
+                        headerConnectBtn.style.display = 'block';
+                    } else {
+                        headerConnectBtn.innerText = "Connect LinkedIn";
+                        headerConnectBtn.classList.remove('linked');
+                        headerConnectBtn.style.display = 'block';
+                        headerConnectBtn.onclick = () => window.location.href = `${API_BASE}/auth/linkedin`;
+                    }
+                }
+            }
+        } else {
+            document.getElementById('gatekeeper-overlay').style.display = 'flex';
+            document.getElementById('linkedin-connect-overlay').style.display = 'none';
+        }
+    } catch (error) {
+        console.error("Auth check failed:", error);
+    }
+}
 
 async function loadPrompts() {
     try {
@@ -72,6 +128,144 @@ function renderPromptChips(prompts) {
 }
 
 function setupEventListeners() {
+    // Auth Tab Switching
+    const tabLogin = document.getElementById('tab-login');
+    const tabSignup = document.getElementById('tab-signup');
+    const authTitle = document.getElementById('auth-title');
+    const signupReminder = document.getElementById('signup-reminder');
+    const authPasswordHint = document.getElementById('auth-password-hint');
+    const showPasswordToggle = document.getElementById('show-password-toggle');
+    const authPassword = document.getElementById('auth-password');
+    const authMasterKey = document.getElementById('auth-master-key');
+    const btnAuthSubmit = document.getElementById('btn-auth-submit');
+    let authMode = 'login';
+
+    function switchAuthMode(mode) {
+        authMode = mode;
+        if (mode === 'signup') {
+            tabSignup.classList.add('active');
+            tabLogin.classList.remove('active');
+            authTitle.innerText = "Create Account";
+            signupReminder.style.display = 'block';
+            authPasswordHint.style.display = 'block';
+            btnAuthSubmit.innerText = "Create & Join";
+        } else {
+            tabLogin.classList.add('active');
+            tabSignup.classList.remove('active');
+            authTitle.innerText = "Welcome Back";
+            signupReminder.style.display = 'none';
+            authPasswordHint.style.display = 'none';
+            btnAuthSubmit.innerText = "Unlock Dashboard";
+        }
+    }
+
+    if (showPasswordToggle) {
+        showPasswordToggle.addEventListener('change', (e) => {
+            const type = e.target.checked ? 'text' : 'password';
+            authPassword.type = type;
+            authMasterKey.type = type;
+        });
+    }
+
+    if (tabLogin) tabLogin.addEventListener('click', () => switchAuthMode('login'));
+    if (tabSignup) tabSignup.addEventListener('click', () => switchAuthMode('signup'));
+
+    if (btnAuthSubmit) {
+        btnAuthSubmit.addEventListener('click', async () => {
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const masterKey = document.getElementById('auth-master-key').value.trim();
+            const errEl = document.getElementById('auth-error');
+
+            errEl.style.display = 'none';
+
+            if (!username || !password || !masterKey) {
+                errEl.innerText = "Please fill all fields";
+                errEl.style.display = 'block';
+                return;
+            }
+
+            if (authMode === 'signup') {
+                const hasLetter = /[a-zA-Z]/.test(password);
+                const hasNumber = /\d/.test(password);
+                if (password.length < 6 || !hasLetter || !hasNumber) {
+                    errEl.innerText = "Password must be at least 6 characters and include both letters and numbers.";
+                    errEl.style.display = 'block';
+                    return;
+                }
+            }
+
+            // --- Loading State ---
+            const originalText = btnAuthSubmit.innerText;
+            btnAuthSubmit.disabled = true;
+            btnAuthSubmit.innerHTML = `<span class="loading-spinner"></span> ${authMode === 'signup' ? 'Creating Account...' : 'Verifying...'}`;
+
+            const endpoint = authMode === 'signup' ? '/auth/signup' : '/auth/login';
+            try {
+                const res = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, master_key: masterKey }),
+                    credentials: 'include'
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    errEl.style.display = 'none';
+                    if (authMode === 'signup') {
+                        // Restore button and switch to login tab
+                        btnAuthSubmit.disabled = false;
+                        btnAuthSubmit.innerText = originalText;
+                        errEl.style.color = '#4ade80';
+                        errEl.innerText = "✅ Account created! Now log in below.";
+                        errEl.style.display = 'block';
+                        switchAuthMode('login');
+                    } else {
+                        // ✅ LOGIN: Unlock UI immediately without a second /auth/check call
+                        btnAuthSubmit.innerHTML = `✅ Welcome!`;
+                        document.getElementById('gatekeeper-overlay').style.display = 'none';
+
+                        // Instantly update header title and preview with the username they just typed
+                        const headerTitle = document.getElementById('app-header-title');
+                        const previewName = document.getElementById('app-preview-name');
+                        const previewAvatar = document.getElementById('app-preview-avatar');
+                        
+                        if (data.name || username) {
+                            const displayName = data.name || username;
+                            if (headerTitle) headerTitle.innerText = `Hii ${displayName}`;
+                            if (previewName) previewName.innerText = displayName;
+                            if (previewAvatar) previewAvatar.innerText = displayName.charAt(0).toUpperCase();
+                        }
+
+                        // Load drafts and prompts in the background
+                        fetchPosts();
+                        loadPrompts();
+                        // Check LinkedIn status silently in background
+                        checkAuthStatus();
+                    }
+                } else {
+                    btnAuthSubmit.disabled = false;
+                    btnAuthSubmit.innerText = originalText;
+                    errEl.style.color = '#ff5555';
+                    // Special case to remind user to sign up after DB clears
+                    if (data.detail && data.detail.includes("Invalid username or password")) {
+                        errEl.innerText = "❌ Authentication failed. If the database was recently cleared, you need to Sign Up again!";
+                    } else {
+                        errEl.innerText = `❌ ${data.detail || "Authentication failed"}`;
+                    }
+                    errEl.style.display = 'block';
+                }
+            } catch(e) {
+                console.error(e);
+                btnAuthSubmit.disabled = false;
+                btnAuthSubmit.innerText = originalText;
+                errEl.style.color = '#ff5555';
+                errEl.innerText = "Connection Error — Is the server running?";
+                errEl.style.display = 'block';
+            }
+        });
+    }
+
     // Sync buffer when the user manually edits the contenteditable preview
     liPostText.addEventListener('input', () => {
         postContentBuffer = getDOMText(liPostText); // Keep buffer in sync with manual edits
@@ -103,11 +297,22 @@ function setupEventListeners() {
         }
     });
 
-    // Panel Toggle
+    // Panel Toggle (Wise Mobile Focus)
     btnChatToggle.addEventListener('click', () => {
         chatPanel.classList.add('active');
         document.body.classList.add('chat-open');
         chatInput.focus();
+        
+        // On mobile, scroll the preview container to the top so it's not hidden by the bottom drawer
+        if (window.innerWidth <= 768) {
+            const previewContainer = document.getElementById('linkedin-preview-container');
+            if (previewContainer) {
+                previewContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Switch to preview tab automatically if that's where the user is going
+                const previewTab = document.querySelector('.mobile-tab[data-view="preview"]');
+                if (previewTab) previewTab.click();
+            }
+        }
     });
 
     btnChatClose.addEventListener('click', () => {
@@ -115,16 +320,69 @@ function setupEventListeners() {
         document.body.classList.remove('chat-open');
     });
 
-    btnCopyPost.addEventListener('click', handleCopyContent);
+    const btnSkipLinkedin = document.getElementById('btn-skip-linkedin');
+    if (btnSkipLinkedin) {
+        btnSkipLinkedin.addEventListener('click', () => {
+            document.getElementById('linkedin-connect-overlay').style.display = 'none';
+        });
+    }
+
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', async () => {
+            const originalText = btnLogout.innerHTML;
+            btnLogout.innerHTML = `<span class="loading-spinner" style="width:14px;height:14px;border-width:2px;"></span>`;
+            btnLogout.disabled = true;
+            try {
+                await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+            } catch(e) {
+                console.error(e);
+            }
+            window.location.reload();
+        });
+    }
+
     if (btnPublishDirect) {
         btnPublishDirect.addEventListener('click', publishToLinkedIn);
+    }
+
+    // --- NEW: Mobile & Ergonomic Listeners ---
+    
+    // Metadata Collapsible (Deeply Wise Disclosure)
+    const btnMetaToggle = document.getElementById('btn-metadata-expand');
+    const advancedMeta = document.getElementById('advanced-metadata');
+    
+    if (btnMetaToggle && advancedMeta) {
+        btnMetaToggle.addEventListener('click', () => {
+            const isCollapsed = advancedMeta.classList.toggle('collapsed');
+            btnMetaToggle.classList.toggle('expanded', !isCollapsed);
+            btnMetaToggle.querySelector('.chevron').innerText = isCollapsed ? '▼' : '▲';
+        });
+    }
+
+    // Mobile View Toggle Switcher (Obsolete in Vertical Flow)
+    // No longer required as we use down-to-down vertical scrolling
+
+    // Sticky Bar Linking
+    const stickyDraft = document.getElementById('sticky-ai-draft');
+    const stickyPublish = document.getElementById('sticky-publish');
+    const stickySave = document.getElementById('sticky-save');
+
+    if (stickyDraft) stickyDraft.addEventListener('click', handleAIDraft);
+    if (stickyPublish) stickyPublish.addEventListener('click', publishToLinkedIn);
+    if (stickySave) stickySave.addEventListener('click', handleSavePost);
+
+    // Draft Modal Listeners
+    const btnCloseDraft = document.getElementById('btn-close-draft');
+    if (btnCloseDraft) {
+        btnCloseDraft.addEventListener('click', closeDraftModal);
     }
 }
 
 // API Functions
 async function fetchPosts() {
     try {
-        const response = await fetch(`${API_BASE}/posts/`);
+        const response = await fetch(`${API_BASE}/posts/`, { credentials: 'include' });
         const posts = await response.json();
         renderPosts(posts);
     } catch (error) {
@@ -257,8 +515,15 @@ async function handleAIDraft() {
     postContentBuffer = '';
     liPostText.textContent = '';
 
-    // Smooth scroll to results immediately
-    document.getElementById('linkedin-preview-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Smooth scroll to results immediately (WISE response)
+    const previewContainer = document.getElementById('linkedin-preview-container');
+    if (window.innerWidth <= 768) {
+        // Switch to preview tab automatically on mobile if not already there
+        const previewTab = document.querySelector('.mobile-tab[data-view="preview"]');
+        if (previewTab) previewTab.click();
+    }
+    
+    previewContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
     
     try {
         // Step 1: Extract Metadata (Mentors, etc.) if fields are empty
@@ -360,7 +625,8 @@ async function handleAIRefine() {
             body: JSON.stringify({ 
                 current_content: currentDraft,
                 instruction: instruction
-            })
+            }),
+            credentials: 'include'
         });
 
         if (!response.body) throw new Error('Response body is null');
@@ -448,7 +714,8 @@ async function handleSavePost() {
     try {
         const response = await fetch(`${API_BASE}/posts/`, {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Failed to save to database');
@@ -491,7 +758,7 @@ async function handlePublish(id, event) {
     btn.innerHTML = `<span class="loading-spinner"></span> Publishing...`;
     
     try {
-        const response = await fetch(`${API_BASE}/posts/${id}/publish`, { method: 'POST' });
+        const response = await fetch(`${API_BASE}/posts/${id}/publish`, { method: 'POST', credentials: 'include' });
         if (!response.ok) throw new Error('Publishing failed');
         
         btn.innerHTML = `✅ Posted`;
@@ -504,6 +771,13 @@ async function handlePublish(id, event) {
         console.error('Error publishing post:', error);
         btn.innerHTML = `❌ Failed`;
         btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        
+        // Task 4: Auto-refresh connection status if token expired
+        if (error.message.includes('LINKEDIN_UNAUTHORIZED') || error.message.includes('401')) {
+            alert('Your LinkedIn connection has expired. Please reconnect.');
+            checkAuthStatus(); // This will show the connect overlay
+        }
+        
         setTimeout(() => {
             btn.innerHTML = originalText;
             btn.style.background = '';
@@ -514,21 +788,39 @@ async function handlePublish(id, event) {
     }
 }
 
-async function handleDeletePost(id) {
+async function handleDeletePost(id, event) {
     if (!confirm("Are you sure you want to delete this draft and its images?")) return;
+
+    let btn = null;
+    let originalText = '✕';
+    if (event) {
+        btn = event.currentTarget || event.target;
+        originalText = btn.innerHTML;
+        btn.innerHTML = `<span class="loading-spinner" style="width:14px;height:14px;border-width:2px;"></span>`;
+        btn.disabled = true;
+    }
 
     try {
         const response = await fetch(`${API_BASE}/posts/${id}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            credentials: 'include'
         });
         if (response.ok) {
-            fetchPosts();
+            fetchPosts(); // This will clear the button anyway when it re-renders
         } else {
             alert("Failed to delete post.");
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
     } catch (error) {
         console.error('Error deleting post:', error);
         alert("Error connecting to backend.");
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
     }
 }
 
@@ -552,6 +844,14 @@ function renderPosts(posts) {
         const card = document.createElement('div');
         card.className = 'post-item glass-card';
         card.style.animationDelay = `${0.1 + (index * 0.05)}s`;
+        card.style.cursor = 'pointer';
+        
+        // Open modal on click, but ignore if internal buttons were clicked
+        card.onclick = (e) => {
+            if (!e.target.closest('button')) {
+                openDraftModal(post);
+            }
+        };
         
         // Build image indicator if there are images
         let imagesHtml = '';
@@ -565,7 +865,7 @@ function renderPosts(posts) {
         
         card.innerHTML = `
             <div class="status-badge status-${post.status.toLowerCase()}">${post.status}</div>
-            <button class="btn-delete-float" onclick="handleDeletePost(${post.id})" title="Delete Draft">✕</button>
+            <button class="btn-delete-float" onclick="handleDeletePost(${post.id}, event)" title="Delete Draft">✕</button>
             <p class="post-content">${post.content}</p>
             ${imagesHtml}
             <div class="post-footer">
@@ -579,6 +879,52 @@ function renderPosts(posts) {
         `;
         postList.appendChild(card);
     });
+}
+
+/**
+ * --- DRAFT MODAL LOGIC ---
+ */
+function openDraftModal(post) {
+    const modal = document.getElementById('draft-modal');
+    const modalContent = document.getElementById('modal-post-content');
+    const modalImages = document.getElementById('modal-image-grid');
+    const publishBtn = document.getElementById('modal-publish-btn');
+    
+    // Populate text (with hashtag highlighting)
+    const escaped = escapeHtml(post.content);
+    modalContent.innerHTML = escaped.replace(/#(\w+)/g, '<span class="li-hashtag">#$1</span>');
+    
+    // Populate images
+    modalImages.innerHTML = '';
+    if (post.image_urls && post.image_urls.length > 0) {
+        post.image_urls.forEach(url => {
+            const img = document.createElement('img');
+            img.src = `${API_BASE}${url}`;
+            img.className = 'media-item';
+            modalImages.appendChild(img);
+        });
+    }
+    
+    // Setup Publish Button
+    if (post.status.toLowerCase() === 'draft') {
+        publishBtn.style.display = 'block';
+        publishBtn.onclick = (e) => {
+            closeDraftModal();
+            handlePublish(post.id, e);
+        };
+    } else {
+        publishBtn.style.display = 'none';
+    }
+    
+    // Show Modal
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // Prevent scrolling background
+}
+
+function closeDraftModal() {
+    const modal = document.getElementById('draft-modal');
+    modal.style.display = 'none';
+    document.body.style.overflow = ''; // Re-enable scrolling
 }
 
 
@@ -672,7 +1018,8 @@ async function publishToLinkedIn() {
         
         const response = await fetch(`${API_BASE}/posts/publish-direct`, {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
         
         if (!response.ok) {
@@ -688,7 +1035,14 @@ async function publishToLinkedIn() {
     } catch (error) {
         console.error('Publishing error:', error);
         setLoading(false, 'btn-publish-direct', 'Publish');
-        showResultPopup('error', 'Publishing Failed', `${error.message}\nMake sure your LINKEDIN_ACCESS_TOKEN is configured in backend/.env`);
+        
+        // Task 4: Auto-refresh connection status if token expired
+        if (error.message.includes('401') || error.message.includes('LINKEDIN_UNAUTHORIZED')) {
+            alert('Your LinkedIn session has expired. Please reconnect.');
+            checkAuthStatus(); // This will show the connect overlay
+        } else {
+            showResultPopup('error', 'Publishing Failed', `${error.message}\nMake sure your LinkedIn connection is still active.`);
+        }
     }
 }
 
