@@ -73,3 +73,21 @@ app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 @app.get("/health")
 def health():
     return {"status": "ok", "frontend_path": frontend_dir, "cwd": os.getcwd()}
+
+@app.get("/debug/ai")
+def debug_ai():
+    """Test the AI connection and return the raw error for diagnosis."""
+    key = os.getenv("GOOGLE_API_KEY")
+    if not key:
+        return {"error": "NO API KEY FOUND IN ENVIRONMENT"}
+    
+    # Show partial key to confirm it's the right one
+    key_preview = key[:8] + "..." + key[-4:]
+    
+    try:
+        from google import genai
+        client = genai.Client(api_key=key, http_options={"api_version": "v1"})
+        response = client.models.generate_content(model="gemini-2.0-flash", contents="Say: Hello World")
+        return {"status": "SUCCESS", "key_preview": key_preview, "response": response.text}
+    except Exception as e:
+        return {"status": "FAILED", "key_preview": key_preview, "raw_error": str(e)}
