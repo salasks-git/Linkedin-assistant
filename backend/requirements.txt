@@ -5,7 +5,7 @@ pydantic
 python-multipart
 httpx
 python-dotenv
-google-genai
+google-generativeai
 psycopg2-binary
 cryptography
 slowapi
