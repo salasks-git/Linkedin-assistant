@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LinkedIn Assistant | Native JS</title>
-    <link rel="stylesheet" href="style.css?v=7">
+    <title>LinkedIn Assistant | Digital Atelier</title>
+    <link rel="stylesheet" href="style.css?v=8">
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap"
         rel="stylesheet">
@@ -13,7 +13,7 @@
 
 <body>
     <!-- Auth Overlays -->
-    <div id="gatekeeper-overlay" class="gatekeeper-overlay" style="display: none;">
+    <div id="gatekeeper-overlay" class="gatekeeper-overlay" style="display: flex;">
         <div class="glass-card login-card">
             <div class="auth-tabs">
                 <button id="tab-login" class="auth-tab active">Log In</button>
@@ -34,11 +34,6 @@
                     <div id="auth-password-hint" class="input-hint" style="display: none;">
                         🔒 Password must be at least 6 characters including letters and numbers.
                     </div>
-                </div>
-                
-                <div class="auth-input-group">
-                    <label for="auth-master-key">Master Key</label>
-                    <input type="password" id="auth-master-key" placeholder="Enter global master key">
                 </div>
 
                 <div class="show-password-container">
@@ -65,204 +60,178 @@
             </div>
         </div>
     </div>
+
+    <!-- Main Desktop App Shell: 3 Column Layout -->
     <div class="app-shell">
-        <div class="main-content">
-            <header class="header">
-                <h1 id="app-header-title" class="title">Hii ...</h1>
-                <div class="user-info">
-                    <button id="btn-header-connect" class="btn-linkedin-sm" style="display: none;">Connect LinkedIn</button>
-                    <button id="btn-logout" class="btn-logout-sm" title="Logout">Log out</button>
+        <div class="app-container">
+            <!-- Sidebar Navigation panel -->
+            <nav class="sidebar glass-panel">
+                <div class="sidebar-header">
+                    <h1 class="logo">Digital.Atelier</h1>
+                    <div class="user-profile">
+                        <div class="avatar" id="app-preview-avatar">?</div>
+                        <div class="user-meta">
+                            <span class="user-name" id="app-preview-name">User</span>
+                            <span class="user-role">Creator</span>
+                        </div>
+                    </div>
                 </div>
-            </header>
 
-            </header>
+                <div class="sidebar-menu">
+                    <div class="menu-label">Workspace</div>
+                    <button class="nav-btn">
+                        <span class="icon">✨</span> Write
+                    </button>
+                    <button class="nav-btn" id="btn-open-queue">
+                        <span class="icon">📚</span> Queue (<span id="queue-count">0</span>)
+                    </button>
+                </div>
 
-            <main class="grid-layout">
-                <!-- Editor Section -->
-                <section class="post-editor glass-card">
-                    <h2 class="section-title">Craft New Content</h2>
-                    <p class="section-subtitle">Draft your professional story. Use the AI to ignite ideas.</p>
+                <div class="sidebar-footer">
+                    <button id="btn-header-connect" class="btn-linkedin-outline" style="display: none; width: 100%;">Connect LinkedIn</button>
+                    <button id="btn-logout" class="btn-text full-width" style="margin-top: 10px;">Log Out</button>
+                </div>
+            </nav>
 
-                    <div class="ai-controls">
-                        <p class="ai-tip">Select a style and fill in its context to generate your draft.</p>
+            <!-- Center Workspace Panel -->
+            <main class="workspace glass-panel">
+                <div class="workspace-header">
+                    <h2>Craft Content</h2>
+                    <p class="subtitle">Draft your professional story.</p>
+                </div>
 
-                        <!-- Dynamic chips will be loaded here -->
-                        <div id="dynamic-prompt-selector" class="prompt-selector">
+                <div class="workspace-body">
+                    <div class="prompt-section">
+                        <label class="section-label">1. Select Tonality</label>
+                        <div id="dynamic-prompt-selector" class="chip-group">
                             <div class="loading-shimmer">Loading styles...</div>
                         </div>
+                    </div>
 
-                        <div class="metadata-toggle">
-                            <button id="btn-metadata-expand" class="btn-text">
-                                <span class="icon">⚙️</span> Settings & Mentors <span class="chevron">▼</span>
+                    <div class="metadata-section">
+                        <label class="section-label">2. Provide Context (Optional)</label>
+                        <div class="input-grid">
+                            <input type="text" id="resource-persons" placeholder="Resource Persons">
+                            <input type="text" id="mentors" placeholder="Mentors">
+                            <input type="text" id="coordinators" placeholder="Coordinators">
+                        </div>
+                    </div>
+
+                    <div class="editor-section">
+                        <label class="section-label">3. Describe the post</label>
+                        <textarea id="ai-topic" placeholder="What are we talking about today? (Shift+Enter for new line)"></textarea>
+                        
+                        <div class="editor-actions">
+                            <label for="image-input" class="file-input-label">
+                                <span class="upload-icon">🖼️</span> Upload Media
+                                <input type="file" id="image-input" accept="image/*" multiple>
+                            </label>
+                            <button id="btn-ai-draft" class="btn btn-primary">
+                                <span class="sparkle-icon">✨</span> Draft with AI
                             </button>
                         </div>
+                    </div>
 
-                        <div id="advanced-metadata" class="metadata-grid collapsed">
-                            <div class="input-field">
-                                <label for="resource-persons">Resource Persons</label>
-                                <input type="text" id="resource-persons" placeholder="e.g. Dr. Jane Smith">
-                            </div>
-                            <div class="input-field">
-                                <label for="mentors">Mentors</label>
-                                <input type="text" id="mentors" placeholder="e.g. Prof. Alan">
-                            </div>
-                            <div class="input-field">
-                                <label for="coordinators">Coordinators</label>
-                                <input type="text" id="coordinators" placeholder="e.g. Tech Club">
+                    <!-- Embedded AI Refiner within Workspace -->
+                    <div id="ai-chat-inline" class="ai-chat-inline glass-panel-inner">
+                        <div class="chat-header">
+                            <h3>AI Refiner</h3>
+                        </div>
+                        <div id="chat-messages" class="chat-messages">
+                            <div class="chat-bubble ai">
+                                I'm ready. Generate a draft above, and then tell me how to refine it!
                             </div>
                         </div>
-
-                        <div class="input-group main-input vertical">
-                            <textarea id="ai-topic"
-                                placeholder="Describe your experience or topic in detail... (Shift+Enter for new line, Enter to Draft)"></textarea>
-                            <button id="btn-ai-draft" class="btn btn-secondary">Draft with AI</button>
+                        <div class="chat-input-wrapper">
+                            <input type="text" id="chat-input" placeholder="e.g. Make it more professional...">
+                            <button id="btn-chat-send"><span>↗️</span></button>
                         </div>
                     </div>
-
-                    <div class="image-upload-wrapper">
-                        <label for="image-input" class="file-input-label">
-                            <span class="upload-icon">🖼️</span>
-                            <span>Add images to your post</span>
-                            <input type="file" id="image-input" accept="image/*" multiple>
-                        </label>
-                    </div>
-
-                    <!-- Removed old post-content textarea -->
-                </section>
-
-                <!-- Preview/Report Section -->
-                <aside class="preview-report glass-card">
-                    <h2 class="section-title sidebar-title">LinkedIn Preview</h2>
-
-                    <div id="linkedin-preview-container">
-                        <div class="linkedin-post">
-                            <div class="li-header">
-                                <div class="li-user-block">
-                                    <div class="li-avatar" id="app-preview-avatar">?</div>
-                                    <div class="li-user-meta">
-                                        <span class="li-name"><span id="app-preview-name">User</span> <span class="li-badge">• You</span></span>
-                                        <span class="li-headline">B.Tech CS@CCE |IV Rep| IEDC ,Mulearn & Tinke...</span>
-                                        <div class="li-time-row">
-                                            <span>2w</span>
-                                            <span>•</span>
-                                            <span>🌐</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="li-header-actions">
-                                    <button id="btn-copy-post" class="btn-copy-sm" title="Copy Content">📋</button>
-                                    <span class="li-more">•••</span>
-                                </div>
-                            </div>
-
-                            <div id="li-post-text" class="li-content" contenteditable="true">
-                                Excited to share that I've been working on this new LinkedIn Assistant! 🚀
-                            </div>
-
-                            <div id="li-image-grid" class="li-media-grid" data-count="0">
-                                <!-- Images will be injected here -->
-                            </div>
-
-                            <div class="li-social-stats">
-                                <div class="li-stats-left">
-                                    <div class="li-reaction-icons">👍❤️💡</div>
-                                    <span>You and 19 others</span>
-                                </div>
-                                <div class="li-stats-right">
-                                    <span>2 comments</span>
-                                </div>
-                            </div>
-
-                            <div class="li-actions">
-                                <button class="li-action-btn"><span
-                                        class="li-action-icon">👍</span><span>Like</span></button>
-                                <button class="li-action-btn"><span
-                                        class="li-action-icon">💬</span><span>Comment</span></button>
-                                <button class="li-action-btn"><span
-                                        class="li-action-icon">♻️</span><span>Repost</span></button>
-                                <button id="btn-publish-direct" class="li-action-btn"><span
-                                        class="li-action-icon">➡️</span><span>Publish</span></button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="preview-actions">
-                        <button id="btn-save-post" class="btn btn-primary full-width">Save Draft to Queue</button>
-                    </div>
-
-                    <div id="metrics-container" class="metrics-container">
-                        <!-- Metrics injected here -->
-                    </div>
-
-                </aside>
+                </div>
             </main>
 
-            <!-- Dashboard Section -->
-            <section class="dashboard">
-                <div class="dashboard-header">
-                    <h2 class="section-title">Content Queue</h2>
-                    <span id="post-count" class="count-badge">0 Items</span>
-                </div>
-                <div id="post-list" class="post-list">
-                    <!-- Posts will be injected here -->
-                </div>
-            </section>
-
-        </div> <!-- End of .main-content -->
-
-        <!-- AI Sidekick Chat Panel -->
-        <div id="ai-chat-panel" class="ai-chat-panel">
-            <div class="chat-header">
-                <h3 class="chat-title">AI Refiner</h3>
-                <button id="btn-chat-close" class="btn-icon">✕</button>
-            </div>
-            <div id="chat-messages" class="chat-messages">
-                <div class="chat-bubble ai">
-                    How can I help you perfect this draft? Try: "Make it more professional" or "Add 3 hashtags".
-                </div>
-            </div>
-            <div class="chat-input-wrapper">
-                <input type="text" id="chat-input" placeholder="Refine instruction...">
-                <button id="btn-chat-send"><span>↗️</span></button>
-            </div>
-        </div>
-
-        <!-- Full-Screen Draft Preview Modal -->
-        <div id="draft-modal" class="overlay" style="display: none; padding: 2rem; z-index: 3000;">
-            <div class="modal-content-wrapper glass-card">
-                <div class="modal-header">
-                    <button id="btn-close-draft" class="btn-back" title="Exit Preview">
-                        <span class="back-icon-circle">⟵</span>
-                        <span>Back</span>
-                    </button>
-                    <h2 class="modal-title">Review Draft</h2>
-                    <div style="width: 80px;"></div>
+            <!-- Right Preview Panel -->
+            <aside class="preview-panel glass-panel">
+                <div class="preview-header">
+                    <h2>Live Preview</h2>
+                    <div class="preview-actions">
+                        <button id="btn-save-post" class="btn btn-secondary-sm">Save Draft</button>
+                        <button id="btn-publish-direct" class="btn btn-primary-sm">Publish Now</button>
+                    </div>
                 </div>
                 
-                <div class="modal-scroll-body">
-                    <div id="modal-image-grid" class="preview-media"></div>
-                    <div id="modal-post-content" class="li-content" style="font-size: 1.15rem; line-height: 1.8; padding: 1.5rem;"></div>
+                <div class="preview-body">
+                    <!-- LinkedIn Feed Card Replica -->
+                    <div id="linkedin-preview-container" class="linkedin-post">
+                        <div class="li-header">
+                            <div class="li-user-block">
+                                <div class="li-avatar" id="li-post-avatar">?</div>
+                                <div class="li-user-meta">
+                                    <span class="li-name"><span id="li-post-name">User</span> <span class="li-badge">• You</span></span>
+                                    <span class="li-headline">Content Creator</span>
+                                    <div class="li-time-row">
+                                        <span>Just now</span> • <span>🌐</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="btn-copy-post" class="btn-copy-sm" title="Copy Text">📋</button>
+                        </div>
+
+                        <!-- Editable Content -->
+                        <div id="li-post-text" class="li-content" contenteditable="true">
+                            Excited to share that I've been working on this new LinkedIn Assistant! 🚀
+                        </div>
+
+                        <!-- Image Grid Container -->
+                        <div id="li-image-grid" class="li-media-grid" data-count="0">
+                            <!-- Images injected here -->
+                        </div>
+
+                        <div class="li-social-stats">
+                            <div class="li-stats-left">
+                                <div class="li-reaction-icons">👍❤️💡</div>
+                                <span>You and 19 others</span>
+                            </div>
+                            <div class="li-stats-right">
+                                <span>2 comments</span>
+                            </div>
+                        </div>
+
+                        <div class="li-actions">
+                            <button class="li-action-btn"><span>👍</span> Like</button>
+                            <button class="li-action-btn"><span>💬</span> Comment</button>
+                            <button class="li-action-btn"><span>♻️</span> Repost</button>
+                            <button class="li-action-btn"><span>✈️</span> Send</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Analytics & Metrics container -->
+                    <div id="metrics-container" class="metrics-container mt-4">
+                        <!-- AI Insights injected here -->
+                    </div>
                 </div>
-                
-                <div class="modal-footer">
-                    <button id="modal-publish-btn" class="btn btn-primary full-width">Post to LinkedIn Now</button>
-                </div>
+            </aside>
+        </div>
+    </div>
+    
+    <!-- Queue Modal (Hidden by default, shown via Sidebar Queue button) -->
+    <div id="queue-modal" class="gatekeeper-overlay" style="display: none;">
+        <div class="glass-card queue-card" style="width: 90%; max-width: 1000px; height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2 style="color: white; margin: 0;">Content Queue (<span id="modal-queue-count">0</span>)</h2>
+                <button id="btn-close-queue" class="btn-icon" style="font-size: 1.5rem; color: white;">✕</button>
+            </div>
+            <div id="post-list" class="post-list">
+                <!-- Posts injected here -->
             </div>
         </div>
+    </div>
 
-        <!-- Mobile Sticky Action Bar -->
-        <div class="mobile-sticky-bar">
-            <button id="sticky-ai-draft" class="sticky-btn btn-secondary">Draft</button>
-            <button id="sticky-publish" class="sticky-btn btn-primary">Publish</button>
-            <button id="sticky-save" class="sticky-btn btn-secondary">Save</button>
-        </div>
-
-        <!-- Floating Summon Button -->
-        <button id="btn-chat-toggle" class="btn-chat-summon">
-            <span class="summon-icon">🤖</span>
-            <span class="summon-text">Refine AI</span>
-        </button>
-    </div> <!-- End of .app-shell -->
+    <!-- Mobile Sticky Action Bar -->
+    <div class="mobile-sticky-bar">
+        <button id="sticky-ai-draft" class="sticky-btn btn-secondary">Draft</button>
+        <button id="sticky-publish" class="sticky-btn btn-primary">Publish</button>
+    </div>
 
     <script src="app.js"></script>
 </body>

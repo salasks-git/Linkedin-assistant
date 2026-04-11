@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: linkedin-assistant
+    runtime: python
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: PYTHON_VERSION
+        value: "3.10.0"
+      # The following must be set securely in the Render Dashboard after deployment:
+      # - MASTER_PASSWORD
+      # - ADMIN_PASSWORD
+      # - GOOGLE_API_KEY
+      # - LINKEDIN_CLIENT_ID
+      # - LINKEDIN_CLIENT_SECRET
+      # - DATABASE_URL (if using Postgres. If omitted, will default to local SQLite)

@@ -42,12 +42,10 @@ class AIRefineRequest(BaseModel):
 class UserSignup(BaseModel):
     username: str
     password: str
-    master_key: str
 
 class UserLogin(BaseModel):
     username: str
     password: str
-    master_key: str
 
 class UserOut(BaseModel):
     id: str
