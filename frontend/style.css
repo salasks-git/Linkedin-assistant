@@ -1275,6 +1275,32 @@ html, body {
     border: 1px solid var(--border);
 }
 
+.li-preview-media-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    margin: 0 0 10px;
+    overflow: hidden;
+}
+
+.li-preview-media-grid.multiple {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.li-preview-media-grid img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 420px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: #f3f3f3;
+}
+
+.li-preview-media-grid.multiple img {
+    height: 220px;
+}
+
 .timeline-card-actions {
     display: flex;
     align-items: center;

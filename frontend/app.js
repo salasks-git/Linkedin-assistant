@@ -133,6 +133,7 @@ let calPickerCurrentYear = 2026;
 let calPickerCurrentMonth = 10; // November (0-indexed)
 let scheduledPostsStorage = JSON.parse(localStorage.getItem('postly_scheduled_posts') || '[]');
 let activeDetailPost = null;
+let postBeingPublishedId = null;
 
 let aiKeyData = {
     provider: 'gemini-3.8-flash',
@@ -1020,6 +1021,7 @@ function setupCreateListeners() {
     if (el.btnPreviewPostNow) {
         el.btnPreviewPostNow.addEventListener('click', async (event) => {
             event.preventDefault();
+            postBeingPublishedId = null;
             if (!userHasLinkedIn) {
                 if (el.postText?.innerText.trim()) postContentBuffer = el.postText.innerText.trim();
                 await copyDraftAfterPublishFailure('LinkedIn is disconnected.');
@@ -1034,6 +1036,7 @@ function setupCreateListeners() {
     if (el.btnCancelPostNow && el.confirmPublishDialog) {
         el.btnCancelPostNow.addEventListener('click', () => {
             el.confirmPublishDialog.style.display = 'none';
+            postBeingPublishedId = null;
         });
     }
 
@@ -1109,6 +1112,7 @@ function renderAttachedMedia() {
 function renderPreviewImages() {
     if (!el.liModalImageGrid) return;
     el.liModalImageGrid.innerHTML = '';
+    el.liModalImageGrid.classList.toggle('multiple', selectedImages.length > 1);
     selectedImages.forEach(file => {
         const url = URL.createObjectURL(file);
         const img = document.createElement('img');
@@ -1777,10 +1781,12 @@ window.publishQueuePost = async function (id) {
     activeDetailPost = post;
     postContentBuffer = post.content;
     if (!userHasLinkedIn) {
+        postBeingPublishedId = null;
         alert('Please connect your LinkedIn account in Settings first.');
         switchPage('settings');
         return;
     }
+    postBeingPublishedId = id;
     if (el.confirmPublishDialog) el.confirmPublishDialog.style.display = 'flex';
 };
 
@@ -1927,6 +1933,7 @@ function setupPostDetails() {
                 return;
             }
             postContentBuffer = activeDetailPost.content;
+            postBeingPublishedId = activeDetailPost.id;
             if (el.confirmPublishDialog) el.confirmPublishDialog.style.display = 'flex';
         });
     }
@@ -2082,14 +2089,28 @@ async function publishDirectly(event) {
     selectedImages.forEach(img => formData.append("images", img));
 
     try {
-        const res = await fetch(`${API_BASE}/posts/publish-direct`, {
-            method: 'POST',
-            body: formData,
-            credentials: 'include'
-        });
+        const queuedPostId = postBeingPublishedId;
+        const res = queuedPostId
+            ? await fetch(`${API_BASE}/posts/${encodeURIComponent(queuedPostId)}/publish`, {
+                method: 'POST',
+                credentials: 'include'
+            })
+            : await fetch(`${API_BASE}/posts/publish-direct`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
         if (res.ok) {
             alert('🎉 Published successfully to your LinkedIn profile!');
             if (el.previewModal) el.previewModal.style.display = 'none';
+            if (queuedPostId) {
+                const markPosted = post => String(post.id) === String(queuedPostId)
+                    ? { ...post, status: 'posted' }
+                    : post;
+                currentPosts = currentPosts.map(markPosted);
+                scheduledPostsStorage = scheduledPostsStorage.map(markPosted);
+                localStorage.setItem('postly_scheduled_posts', JSON.stringify(scheduledPostsStorage));
+            }
             fetchPosts();
             switchPage('schedule');
         } else {
@@ -2108,6 +2129,7 @@ async function publishDirectly(event) {
         console.error('LinkedIn publish request failed:', error);
         await copyDraftAfterPublishFailure('Network error while publishing.');
     } finally {
+        postBeingPublishedId = null;
         if (el.btnPublish) {
             el.btnPublish.disabled = false;
             el.btnPublish.textContent = 'Publish Now';

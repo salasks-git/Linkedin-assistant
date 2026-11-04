@@ -122,11 +122,15 @@ def get_posts(db: Session = Depends(get_db), session: models.Session = Depends(g
                 except Exception:
                     raw_images = []
 
+            status = p.get("status", "draft")
+            if status == "published":
+                status = "posted"
+
             results.append(
                 schemas.Post(
                     id=p["id"],
                     content=p["content"],
-                    status=p.get("status", "draft"),
+                    status=status,
                     scheduled_at=p.get("scheduled_at") or p.get("created_at"),
                     created_at=p.get("created_at"),
                     linkedin_post_id=p.get("linkedin_post_id"),
@@ -292,7 +296,7 @@ async def publish_post(
         updated_post = supabase_db.update_post(
             post_id=post_id_str,
             user_id=user_id,
-            status="published",
+            status="posted",
             linkedin_post_id=post_urn
         )
 
@@ -304,7 +308,7 @@ async def publish_post(
         return schemas.Post(
             id=post_id,
             content=content,
-            status="published",
+            status="posted",
             scheduled_at=post_data.get("scheduled_at") if post_data else db_post.scheduled_at,
             created_at=post_data.get("created_at") if post_data else db_post.created_at,
             linkedin_post_id=post_urn,
