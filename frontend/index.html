@@ -3,237 +3,852 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LinkedIn Assistant | Digital Atelier</title>
-    <link rel="stylesheet" href="style.css?v=8">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap"
-        rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Postly — LinkedIn Assistant</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><path fill=%22%237CF58F%22 d=%22M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z%22/></svg>">
+    <link rel="stylesheet" href="style.css?v=17">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <!-- Auth Overlays -->
-    <div id="gatekeeper-overlay" class="gatekeeper-overlay" style="display: flex;">
-        <div class="glass-card login-card">
-            <div class="auth-tabs">
-                <button id="tab-login" class="auth-tab active">Log In</button>
-                <button id="tab-signup" class="auth-tab">Sign Up</button>
+    <!-- Global Floating Toast Notification -->
+    <div id="postly-toast" class="postly-toast" style="display: none;">
+        <span class="toast-icon">✓</span>
+        <span id="toast-message" class="toast-message">Draft saved</span>
+    </div>
+
+    <!-- Auth Bottom Sheet Overlay -->
+    <div id="gatekeeper-overlay" class="modal-overlay" style="display: none;">
+        <div class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <h2 id="auth-title">Welcome Back</h2>
+                <button type="button" id="btn-close-auth" class="btn-modal-close" style="display: none;">✕</button>
             </div>
-            
-            <div id="auth-form-container">
-                <h2 id="auth-title" style="color: white; margin-bottom: 20px;">Welcome Back</h2>
-                
-                <div class="auth-input-group">
-                    <label for="auth-username">Username</label>
-                    <input type="text" id="auth-username" placeholder="Enter your username">
-                </div>
-                
-                <div class="auth-input-group">
-                    <label for="auth-password">Password</label>
-                    <input type="password" id="auth-password" placeholder="Enter your password">
-                    <div id="auth-password-hint" class="input-hint" style="display: none;">
-                        🔒 Password must be at least 6 characters including letters and numbers.
-                    </div>
-                </div>
 
-                <div class="show-password-container">
-                    <input type="checkbox" id="show-password-toggle">
-                    <label for="show-password-toggle">Show Password</label>
-                </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+                <button id="tab-login" class="segment-btn active"
+                    style="flex: 1; padding: 10px; border-radius: 12px; background: var(--ink); color: #fff; border: none; font-weight: 600; cursor: pointer;">Log
+                    In</button>
+                <button id="tab-signup" class="segment-btn"
+                    style="flex: 1; padding: 10px; border-radius: 12px; background: #EAEAE6; color: var(--ink); border: none; font-weight: 600; cursor: pointer;">Sign
+                    Up</button>
+            </div>
 
-                <div id="signup-reminder" style="display: none; color: var(--accent); font-size: 0.85rem; margin-top: 10px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.2);">
-                    ⚠️ <strong>Important:</strong> Please remember your username and password carefully. They are private to your account!
+            <button id="btn-google-login" class="btn-google" type="button">
+                <svg aria-hidden="true" viewBox="0 0 48 48" focusable="false">
+                    <path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.8 6.1-15Z" />
+                    <path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.8l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8V33A20 20 0 0 0 24 44Z" />
+                    <path fill="#FBBC05" d="M12.6 27.7a12 12 0 0 1 0-7.4v-5.3H5.8a20 20 0 0 0 0 18l6.8-5.3Z" />
+                    <path fill="#EA4335" d="M24 11.9c3 0 5.7 1 7.8 3.1l5.9-5.9C34.1 5.8 29.5 4 24 4A20 20 0 0 0 5.8 15l6.8 5.3c1.6-4.8 6.1-8.4 11.4-8.4Z" />
+                </svg>
+                <span>Continue with Google</span>
+            </button>
+            <div class="auth-divider"><span>or continue with email</span></div>
+
+            <div class="form-group">
+                <label for="auth-username">Username</label>
+                <input type="text" id="auth-username" class="form-input" placeholder="Enter username">
+            </div>
+
+            <div class="form-group">
+                <label for="auth-password">Password</label>
+                <div class="input-password-row">
+                    <input type="password" id="auth-password" class="form-input" placeholder="Enter password">
                 </div>
-                
-                <button id="btn-auth-submit" class="btn btn-primary" style="margin-top: 20px; width: 100%;">Unlock Dashboard</button>
-                <p id="auth-error" class="error-msg" style="display:none; color: #ff5555; margin-top: 15px; font-size: 0.9rem;"></p>
+                <p id="auth-password-hint"
+                    style="display: none; font-size: 11.5px; color: var(--ink-2); margin-top: 4px;">
+                    🔒 Must be at least 6 characters.
+                </p>
+            </div>
+
+            <label class="checkbox-row">
+                <input type="checkbox" id="show-password-toggle">
+                <span>Show Password</span>
+            </label>
+
+            <p id="signup-reminder"
+                style="display: none; font-size: 12px; color: var(--accent-dark); background: rgba(124, 245, 143, 0.15); padding: 10px; border-radius: 10px; margin-bottom: 14px;">
+                ⚠️ Please remember your credentials carefully!
+            </p>
+
+            <p id="auth-error" class="feedback-banner error"></p>
+
+            <button id="btn-auth-submit" class="btn-sheet-submit">Unlock Postly</button>
+        </div>
+    </div>
+
+    <!-- LinkedIn Connect Overlay -->
+    <div id="linkedin-connect-overlay" class="modal-overlay" style="display: none;">
+        <div class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <h2>Connect LinkedIn</h2>
+            </div>
+            <p class="sheet-desc">Link your LinkedIn account to publish posts directly to your profile and monitor queue
+                updates.</p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <a href="/auth/linkedin" class="btn-sheet-submit" style="text-decoration: none;">Sign in with
+                    LinkedIn</a>
+                <button id="btn-skip-linkedin" class="btn-sheet-danger"
+                    style="color: var(--ink-2); border-color: var(--border);">Continue as Guest</button>
             </div>
         </div>
     </div>
-    
-    <div id="linkedin-connect-overlay" class="gatekeeper-overlay" style="display: none;">
-        <div class="glass-card login-card">
-            <h2 style="color: white;">Connect LinkedIn</h2>
-            <p style="color: #aaa; margin: 15px 0;">You need to connect your LinkedIn account to actually publish posts directly.</p>
-            <div style="display: flex; gap: 10px; flex-direction: column;">
-                <a href="/auth/linkedin" class="btn btn-primary" style="text-decoration: none; padding: 12px 24px; text-align: center;">Sign in with LinkedIn</a>
+
+    <!-- Mandatory & Settings AI Setup Bottom Sheet -->
+    <div id="ai-setup-overlay" class="modal-overlay" style="display: none;">
+        <div class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <h2 id="ai-setup-title">
+                    <svg style="width: 20px; height: 20px; fill: var(--accent);" viewBox="0 0 24 24">
+                        <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+                    </svg>
+                    <span>Connect Gemini AI</span>
+                </h2>
+                <button id="btn-close-ai-setup" class="btn-modal-close" style="display: none;" title="Close">✕</button>
+            </div>
+
+            <p id="ai-setup-desc" class="sheet-desc">
+                Provide your personal Google Gemini API Key to draft and refine high-impact LinkedIn content. Your key
+                is securely encrypted (AES-256).
+            </p>
+
+            <div class="form-group">
+                <label for="ai-provider-select">AI Model & Engine</label>
+                <select id="ai-provider-select" class="form-select">
+                    <option value="gemini-3.8-flash" selected>Google Gemini 3.8 Flash (Recommended)</option>
+                    <option value="gemini-3.5-flash">Google Gemini 3.5 Flash (Fast)</option>
+                    <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Strategic)</option>
+                    <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Lightweight)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <div class="form-label-row">
+                    <label for="ai-api-key-input">Gemini API Key</label>
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer"
+                        class="form-link">Get Free Key ↗</a>
+                </div>
+                <div class="input-password-row">
+                    <input type="password" id="ai-api-key-input" class="form-input" placeholder="AIzaSy..."
+                        autocomplete="off">
+                    <button type="button" id="btn-toggle-ai-key" class="btn-show-pw"
+                        title="Toggle visibility">👁️</button>
+                </div>
+                <div id="current-key-preview"
+                    style="display: none; font-size: 11.5px; color: var(--accent-dark); margin-top: 6px; font-weight: 500;">
+                </div>
+            </div>
+
+            <label class="checkbox-row">
+                <input type="checkbox" id="check-validate-key" checked>
+                <span>Validate key with Google Gemini before saving</span>
+            </label>
+
+            <div id="ai-setup-feedback" class="feedback-banner"></div>
+
+            <button id="btn-submit-ai-key" class="btn-sheet-submit">
+                <span id="btn-submit-ai-spinner" class="spinner-sm" style="display: none;"></span>
+                <span id="btn-submit-ai-text">Connect AI & Unlock</span>
+            </button>
+
+            <button id="btn-revoke-ai-key" class="btn-sheet-danger" style="display: none;">
+                Revoke Authorization
+            </button>
+        </div>
+    </div>
+
+    <!-- LinkedIn Live Preview & Schedule Bottom Sheet Modal -->
+    <div id="preview-modal" class="modal-overlay" style="display: none;">
+        <div class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <h2>Preview & Schedule</h2>
+                <button id="btn-close-preview" class="btn-modal-close" title="Close">✕</button>
+            </div>
+
+            <!-- Authentic LinkedIn Feed Card Replica -->
+            <div class="li-preview-container">
+                <div class="li-preview-user">
+                    <div class="li-preview-avatar" id="li-post-avatar">AL</div>
+                    <div class="li-preview-meta">
+                        <strong><span id="li-post-name">Alex Creator</span> • You</strong>
+                        <span>Founder & Tech Lead • 1st</span>
+                        <div style="font-size: 11px; color: var(--ink-3); margin-top: 1px;">Just now • 🌐</div>
+                    </div>
+                </div>
+
+                <div id="li-modal-preview-text" class="li-preview-content"></div>
+                <div id="li-modal-image-grid" class="timeline-images-strip" style="margin-bottom: 10px;"></div>
+
+                <div class="li-preview-social">
+                    <span>👍❤️💡 You and 19 others</span>
+                    <span>3 comments</span>
+                </div>
+            </div>
+
+            <!-- Action Area with exactly three actions in required order -->
+            <div class="preview-actions-area">
+                <!-- 1. Schedule (large black primary button) -->
+                <button id="btn-preview-schedule" class="btn-preview-schedule-primary" type="button">
+                    <span>Schedule</span>
+                    <span class="schedule-arrow">→</span>
+                </button>
+
+                <!-- 2. Post now (outlined secondary button) -->
+                <button id="btn-preview-post-now" class="btn-preview-post-now-secondary" type="button">
+                    Post now
+                </button>
+
+                <!-- 3. Save as draft (plain text link under the buttons) -->
+                <div class="save-draft-link-wrapper">
+                    <button id="btn-preview-save-draft" class="link-save-draft" type="button">
+                        Save as draft
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Main Desktop App Shell: 3 Column Layout -->
-    <div class="app-shell">
-        <div class="app-container">
-            <!-- Sidebar Navigation panel -->
-            <nav class="sidebar glass-panel">
-                <div class="sidebar-header">
-                    <h1 class="logo">Digital.Atelier</h1>
-                    <div class="user-profile">
-                        <div class="avatar" id="app-preview-avatar">?</div>
-                        <div class="user-meta">
-                            <span class="user-name" id="app-preview-name">User</span>
-                            <span class="user-role">Creator</span>
-                        </div>
+    <!-- Schedule Post Bottom Sheet Modal -->
+    <div id="schedule-post-modal" class="modal-overlay" style="display: none; z-index: 110;">
+        <div class="bottom-sheet schedule-picker-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <h2>Schedule post</h2>
+                <button id="btn-close-schedule-post" class="btn-modal-close" type="button">✕</button>
+            </div>
+
+            <!-- Compact Month Calendar Component -->
+            <div class="compact-cal-card">
+                <div class="compact-cal-header">
+                    <span id="cal-picker-month-name" class="compact-cal-title">November 2026</span>
+                    <div class="compact-cal-nav">
+                        <button id="btn-cal-picker-prev" class="cal-nav-btn" type="button">‹</button>
+                        <button id="btn-cal-picker-next" class="cal-nav-btn" type="button">›</button>
                     </div>
                 </div>
-
-                <div class="sidebar-menu">
-                    <div class="menu-label">Workspace</div>
-                    <button class="nav-btn">
-                        <span class="icon">✨</span> Write
-                    </button>
-                    <button class="nav-btn" id="btn-open-queue">
-                        <span class="icon">📚</span> Queue (<span id="queue-count">0</span>)
-                    </button>
+                <!-- Day Headers (Mon - Sun) -->
+                <div class="compact-cal-weekdays">
+                    <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
                 </div>
-
-                <div class="sidebar-footer">
-                    <button id="btn-header-connect" class="btn-linkedin-outline" style="display: none; width: 100%;">Connect LinkedIn</button>
-                    <button id="btn-logout" class="btn-text full-width" style="margin-top: 10px;">Log Out</button>
+                <!-- Dates Grid -->
+                <div id="cal-picker-dates-grid" class="compact-cal-dates">
+                    <!-- Populated dynamically -->
                 </div>
-            </nav>
+            </div>
 
-            <!-- Center Workspace Panel -->
-            <main class="workspace glass-panel">
-                <div class="workspace-header">
-                    <h2>Craft Content</h2>
-                    <p class="subtitle">Draft your professional story.</p>
-                </div>
-
-                <div class="workspace-body">
-                    <div class="prompt-section">
-                        <label class="section-label">1. Select Tonality</label>
-                        <div id="dynamic-prompt-selector" class="chip-group">
-                            <div class="loading-shimmer">Loading styles...</div>
-                        </div>
+            <!-- Time Picker Row (Hour : Minute, AM/PM) -->
+            <div class="time-picker-row">
+                <span class="time-picker-label">Time</span>
+                <div class="time-picker-inputs">
+                    <div class="time-input-pill" id="pill-hour" title="Click to adjust hour">
+                        <span id="time-hour-display">08</span>
                     </div>
-
-                    <div class="metadata-section">
-                        <label class="section-label">2. Provide Context (Optional)</label>
-                        <div class="input-grid">
-                            <input type="text" id="resource-persons" placeholder="Resource Persons">
-                            <input type="text" id="mentors" placeholder="Mentors">
-                            <input type="text" id="coordinators" placeholder="Coordinators">
-                        </div>
+                    <span class="time-colon">:</span>
+                    <div class="time-input-pill" id="pill-minute" title="Click to adjust minute">
+                        <span id="time-min-display">45</span>
                     </div>
+                    <div class="ampm-toggle-pill">
+                        <button id="btn-time-am" class="ampm-btn active" type="button">AM</button>
+                        <button id="btn-time-pm" class="ampm-btn" type="button">PM</button>
+                    </div>
+                </div>
+            </div>
 
-                    <div class="editor-section">
-                        <label class="section-label">3. Describe the post</label>
-                        <textarea id="ai-topic" placeholder="What are we talking about today? (Shift+Enter for new line)"></textarea>
-                        
-                        <div class="editor-actions">
-                            <label for="image-input" class="file-input-label">
-                                <span class="upload-icon">🖼️</span> Upload Media
-                                <input type="file" id="image-input" accept="image/*" multiple>
-                            </label>
-                            <button id="btn-ai-draft" class="btn btn-primary">
-                                <span class="sparkle-icon">✨</span> Draft with AI
+            <!-- Green AI Recommendation Chip: Best time: Mon 8:45 AM -->
+            <button id="btn-best-time-chip" class="green-recom-chip" type="button">
+                <span class="recom-chip-content">
+                    <span class="recom-bolt">⚡</span>
+                    <span class="recom-text">Best time: Mon 8:45 AM</span>
+                </span>
+                <span class="recom-dot"></span>
+            </button>
+
+            <!-- Confirm Schedule CTA Button -->
+            <button id="btn-confirm-schedule" class="btn-confirm-schedule" type="button">
+                Confirm schedule
+            </button>
+        </div>
+    </div>
+
+    <!-- Small Confirmation Dialog: Publish to LinkedIn now? -->
+    <div id="confirm-publish-dialog" class="modal-overlay" style="display: none; z-index: 120;">
+        <div class="confirm-dialog-sheet">
+            <h3>Publish to LinkedIn now?</h3>
+            <p>Your post will go live immediately on your LinkedIn profile.</p>
+            <div class="confirm-dialog-actions">
+                <button id="btn-cancel-post-now" class="btn-dialog-cancel" type="button">Cancel</button>
+                <button id="btn-confirm-post-now" class="btn-dialog-confirm" type="button">Post now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Dialog: Delete this draft? -->
+    <div id="delete-draft-modal" class="modal-overlay" style="display: none; z-index: 130;">
+        <div class="confirm-dialog-sheet">
+            <div class="delete-icon-circle">🗑️</div>
+            <h3>Delete this draft?</h3>
+            <p>This draft will be permanently deleted and cannot be recovered.</p>
+            <div class="confirm-dialog-actions">
+                <button id="btn-cancel-delete-draft" class="btn-dialog-cancel" type="button">Cancel</button>
+                <button id="btn-confirm-delete-draft" class="btn-dialog-delete-danger" type="button">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Switcher Sheet Modal -->
+    <div id="model-modal" class="modal-overlay" style="display: none;">
+        <div class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <h2>Switch AI Model</h2>
+                <button id="btn-close-model-modal" class="btn-modal-close">✕</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="settings-row model-option" data-model="gemini-3.8-flash" data-name="Gemini 3.8 Flash">
+                    <div class="settings-row-info">
+                        <strong>Gemini 3.8 Flash</strong>
+                        <p>Latest high-reasoning fast model (Recommended)</p>
+                    </div>
+                    <span class="settings-row-action">✓</span>
+                </button>
+                <button class="settings-row model-option" data-model="gemini-3.5-flash" data-name="Gemini 3.5 Flash">
+                    <div class="settings-row-info">
+                        <strong>Gemini 3.5 Flash</strong>
+                        <p>Ultra fast generation & low latency</p>
+                    </div>
+                </button>
+                <button class="settings-row model-option" data-model="gemini-1.5-pro" data-name="Gemini 1.5 Pro">
+                    <div class="settings-row-info">
+                        <strong>Gemini 1.5 Pro</strong>
+                        <p>Deep nuance, comprehensive long posts</p>
+                    </div>
+                </button>
+                <button class="settings-row model-option" data-model="gemini-1.5-flash" data-name="Gemini 1.5 Flash">
+                    <div class="settings-row-info">
+                        <strong>Gemini 1.5 Flash</strong>
+                        <p>Balanced speed and performance</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden compatibility elements to maintain JS stability -->
+    <div style="display:none;">
+        <div id="app-preview-avatar"></div>
+        <div id="app-preview-name"></div>
+        <div id="resource-persons"></div>
+        <div id="mentors"></div>
+        <div id="coordinators"></div>
+        <div id="chat-messages"></div>
+        <div id="chat-input"></div>
+        <button id="btn-chat-send"></button>
+        <button id="btn-copy-post"></button>
+        <button id="btn-open-queue"></button>
+        <button id="btn-close-queue"></button>
+        <div id="queue-modal"></div>
+        <div id="queue-count">0</div>
+        <div id="modal-queue-count">0</div>
+        <div id="post-list"></div>
+        <button id="sticky-ai-draft"></button>
+        <button id="sticky-publish"></button>
+        <button id="btn-header-connect"></button>
+        <div id="ai-status-indicator"><span id="ai-status-text"></span></div>
+        <span id="sidebar-ai-status"></span>
+        <button id="btn-sidebar-ai-edit"></button>
+    </div>
+
+    <!-- Main Mobile Canvas Container -->
+    <div class="app-container">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <!-- App Brand Name -->
+            <span id="top-bar-brand" class="top-bar-brand">Postly</span>
+
+            <!-- User Avatar Button -->
+            <button id="top-avatar-btn" class="top-avatar-btn" title="Account settings">
+                <img id="avatar-image" alt="" style="display: none;">
+                <span id="avatar-initials">AL</span>
+            </button>
+        </header>
+
+        <!-- Pages Viewport -->
+        <main class="pages">
+            <!-- PAGE 1: CREATE (Postly Core Canvas) -->
+            <section id="page-create" class="page active">
+                <div class="create-viewport">
+                    <!-- State A: Empty State -->
+                    <div id="empty-state" class="empty-state">
+                        <div class="sparkle-badge">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+                            </svg>
+                        </div>
+                        <h1>What should we post today?</h1>
+                        <p>Describe an idea. I'll write the LinkedIn post.</p>
+
+                        <div class="suggestions-list">
+                            <button class="suggestion-btn"
+                                data-fill="Share a lesson learned about scaling our team and maintaining sustainable velocity">
+                                <span>Share a lesson learned</span>
+                                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </button>
+                            <button class="suggestion-btn"
+                                data-fill="Announce our new product launch with key features, benefits, and early access link">
+                                <span>Announce a launch</span>
+                                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </button>
+                            <button class="suggestion-btn"
+                                data-fill="Celebrate hitting a major milestone of 10,000 active users this quarter">
+                                <span>Celebrate a milestone</span>
+                                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </button>
+                            <button class="suggestion-btn"
+                                data-fill="Tell a career story about transitioning from individual contributor to engineering leader">
+                                <span>Tell a career story</span>
+                                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Embedded AI Refiner within Workspace -->
-                    <div id="ai-chat-inline" class="ai-chat-inline glass-panel-inner">
-                        <div class="chat-header">
-                            <h3>AI Refiner</h3>
+                    <!-- State C: Result State -->
+                    <div id="result-state" class="result-state hidden">
+                        <div class="user-bubble-wrapper">
+                            <div id="user-bubble" class="user-prompt-bubble"></div>
                         </div>
-                        <div id="chat-messages" class="chat-messages">
-                            <div class="chat-bubble ai">
-                                I'm ready. Generate a draft above, and then tell me how to refine it!
+
+                        <div class="ai-header-badge">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+                            </svg>
+                            <span>Postly AI</span>
+                        </div>
+
+                        <!-- Generated Post Card -->
+                        <div class="post-result-card">
+                            <div id="gen-shimmer-line" class="shimmer-line"></div>
+                            <div id="li-post-text" class="post-editable-body" contenteditable="true"></div>
+                            <div id="li-image-grid" class="post-media-preview"></div>
+
+                            <div class="post-divider"></div>
+
+                            <!-- Quick Action Buttons -->
+                            <div class="quick-actions-row">
+                                <button id="btn-regenerate" class="action-pill-btn">
+                                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path
+                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                            stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    <span>Regenerate</span>
+                                </button>
+                                <button id="btn-shorter" class="action-pill-btn">Shorter</button>
+                                <button id="btn-longer" class="action-pill-btn">Longer</button>
+                                <button id="btn-edit-focus" class="action-pill-btn">
+                                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path
+                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                            stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    <span>Edit</span>
+                                </button>
+                            </div>
+
+                            <!-- Post Generation Action Buttons (Secondary: Save as draft, Primary: Preview & schedule) -->
+                            <div class="result-action-buttons-row">
+                                <button id="btn-result-save-draft" class="btn-result-secondary" type="button">
+                                    <span>Save as draft</span>
+                                </button>
+                                <button id="btn-open-preview" class="btn-result-primary" type="button">
+                                    <span>Preview &amp; schedule</span>
+                                    <span class="cta-arrow">→</span>
+                                </button>
                             </div>
                         </div>
-                        <div class="chat-input-wrapper">
-                            <input type="text" id="chat-input" placeholder="e.g. Make it more professional...">
-                            <button id="btn-chat-send"><span>↗️</span></button>
+                    </div>
+
+                    <!-- Bottom Composer Area -->
+                    <div class="composer-area">
+                        <!-- Attached Media Previews -->
+                        <div id="composer-attached-bar" class="composer-attached-bar"></div>
+
+                        <!-- Model Switcher Row -->
+                        <div class="composer-model-row">
+                            <button id="btn-model-switcher" class="composer-model-btn" title="Switch AI model">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+                                </svg>
+                                <span id="model-name-display">Gemini 3.8 Flash</span>
+                                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                    <path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Tone Chips Horizontal Scroll -->
+                        <div id="dynamic-prompt-selector" class="tone-chips-scroll no-scrollbar">
+                            <label class="tone-chip-label">
+                                <input type="radio" name="prompt-type" value="humanized" checked>
+                                <span class="tone-chip">Professional</span>
+                            </label>
+                            <label class="tone-chip-label">
+                                <input type="radio" name="prompt-type" value="storytelling">
+                                <span class="tone-chip">Storytelling</span>
+                            </label>
+                            <label class="tone-chip-label">
+                                <input type="radio" name="prompt-type" value="thought_leader">
+                                <span class="tone-chip">Thought Leader</span>
+                            </label>
+                            <label class="tone-chip-label">
+                                <input type="radio" name="prompt-type" value="founder">
+                                <span class="tone-chip">Founder</span>
+                            </label>
+                        </div>
+
+                        <!-- Gemini-Style Pill Composer -->
+                        <div class="pill-composer">
+                            <button id="btn-attach" class="pill-attach-btn" title="Attach image" type="button">
+                                <svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                    <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </button>
+                            <input type="file" id="image-input" accept="image/*" multiple hidden>
+
+                            <input type="text" id="ai-topic" class="pill-input-field"
+                                placeholder="Describe your post idea...">
+
+                            <button id="btn-ai-draft" class="pill-send-btn" title="Generate post" type="button">
+                                <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                                    <path d="M5 12h14m-7-7l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 </div>
-            </main>
+            </section>
 
-            <!-- Right Preview Panel -->
-            <aside class="preview-panel glass-panel">
-                <div class="preview-header">
-                    <h2>Live Preview</h2>
-                    <div class="preview-actions">
-                        <button id="btn-save-post" class="btn btn-secondary-sm">Save Draft</button>
-                        <button id="btn-publish-direct" class="btn btn-primary-sm">Publish Now</button>
+            <!-- PAGE 2: HOME (Workspace Overview) -->
+            <section id="page-home" class="page">
+                <div class="home-viewport">
+                    <div class="workspace-greeting">
+                        <div>
+                            <p class="greeting-label">WORKSPACE</p>
+                            <h2>Good day, <span id="home-user-name">Creator</span></h2>
+                        </div>
+                        <div class="sync-status-pill">
+                            <span class="pulse-dot"></span>
+                            <span>Live sync</span>
+                        </div>
+                    </div>
+
+                    <!-- 3 Stats Cards -->
+                    <div class="stats-row">
+                        <div class="stat-card">
+                            <span class="stat-name">Scheduled</span>
+                            <span class="stat-num" id="stat-scheduled">0</span>
+                            <span class="stat-hint">Next 7 days</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-name">Drafts</span>
+                            <span class="stat-num" id="stat-drafts">0</span>
+                            <span class="stat-hint">In queue</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-name">Published</span>
+                            <span class="stat-num" id="stat-published">0</span>
+                            <span class="stat-hint">Total lifetime</span>
+                        </div>
+                    </div>
+
+                    <!-- Recent Drafts List -->
+                    <div class="home-section-header">
+                        <h3>Recent Drafts <span id="draft-count" class="badge-count">0</span></h3>
+                        <button id="btn-home-view-all" class="btn-link-action">View all</button>
+                    </div>
+                    <div id="home-draft-list" class="home-drafts-list">
+                        <div style="font-size: 13px; color: var(--ink-2); padding: 12px 0;">No drafts yet. Start in
+                            Create!</div>
+                    </div>
+
+                    <!-- Inspiration CTA -->
+                    <div class="inspiration-cta-card">
+                        <div class="inspiration-content">
+                            <div class="inspiration-icon">✦</div>
+                            <div class="inspiration-text">
+                                <strong>Need inspiration?</strong>
+                                <p>Draft from a viral framework.</p>
+                            </div>
+                        </div>
+                        <button id="btn-insp-generate" class="btn-generate-insp">Generate</button>
                     </div>
                 </div>
-                
-                <div class="preview-body">
-                    <!-- LinkedIn Feed Card Replica -->
-                    <div id="linkedin-preview-container" class="linkedin-post">
-                        <div class="li-header">
-                            <div class="li-user-block">
-                                <div class="li-avatar" id="li-post-avatar">?</div>
-                                <div class="li-user-meta">
-                                    <span class="li-name"><span id="li-post-name">User</span> <span class="li-badge">• You</span></span>
-                                    <span class="li-headline">Content Creator</span>
-                                    <div class="li-time-row">
-                                        <span>Just now</span> • <span>🌐</span>
+            </section>
+
+            <!-- PAGE 3: SCHEDULE (Calendar & Queue) -->
+            <section id="page-schedule" class="page">
+                <div class="schedule-viewport">
+                    <div class="schedule-header-row">
+                        <h1>Schedule</h1>
+                        <button id="btn-new-post" class="fab-new-post" title="New post">+</button>
+                    </div>
+
+                    <!-- Calendar Month Strip -->
+                    <div class="calendar-month-strip">
+                        <span id="cal-month-label" class="month-title">Current Week</span>
+                        <div class="month-nav-btns">
+                            <button id="cal-prev" class="btn-nav-arrow" title="Previous">‹</button>
+                            <button id="cal-next" class="btn-nav-arrow" title="Next">›</button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Week Calendar Strip -->
+                    <div id="week-grid" class="week-grid"></div>
+
+                    <!-- Segment Tabs: All / Drafts / Published -->
+                    <div class="filter-segment-tabs">
+                        <button class="segment-btn active" data-filter="all">All</button>
+                        <button class="segment-btn" data-filter="draft">Drafts</button>
+                        <button class="segment-btn" data-filter="posted">Published</button>
+                    </div>
+
+                    <!-- Drafts Tab Action Area: "+ New draft" button (visible on Drafts tab) -->
+                    <div id="schedule-drafts-top-action" class="schedule-drafts-top-action" style="display: none;">
+                        <button id="btn-schedule-new-draft" class="btn-schedule-new-draft" type="button">
+                            <span class="btn-new-draft-plus">+</span>
+                            <span>New draft</span>
+                        </button>
+                    </div>
+
+                    <!-- Timeline Queue List -->
+                    <div id="schedule-list" class="timeline-queue-list">
+                        <div style="font-size: 13px; color: var(--ink-2); text-align: center; padding: 20px;">No
+                            scheduled posts found.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PAGE: POST DETAILS -->
+            <section id="page-post-details" class="page">
+                <div class="post-details-viewport">
+                    <!-- Top Bar: Back arrow on left, Title "Post details", Status label on right -->
+                    <div class="post-details-top-bar">
+                        <button id="btn-details-back" class="btn-details-back" title="Back to schedule" type="button">
+                            <svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                <path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                        <h2 class="post-details-title">Post details</h2>
+                        <div id="details-status-badge" class="details-status-badge draft">Draft</div>
+                    </div>
+
+                    <!-- Main Area: Full LinkedIn-Style Post Preview -->
+                    <div class="post-details-body">
+                        <div class="li-feed-card">
+                            <!-- User Header -->
+                            <div class="li-feed-header">
+                                <div class="li-feed-avatar" id="details-post-avatar">AL</div>
+                                <div class="li-feed-meta">
+                                    <div class="li-feed-name-row">
+                                        <strong id="details-post-name">Alex Creator</strong>
+                                        <span class="li-feed-badge">• You</span>
                                     </div>
+                                    <span class="li-feed-headline">Founder &amp; Tech Lead • 1st</span>
+                                    <span class="li-feed-time" id="details-post-time">Draft preview • 🌐</span>
                                 </div>
                             </div>
-                            <button id="btn-copy-post" class="btn-copy-sm" title="Copy Text">📋</button>
-                        </div>
 
-                        <!-- Editable Content -->
-                        <div id="li-post-text" class="li-content" contenteditable="true">
-                            Excited to share that I've been working on this new LinkedIn Assistant! 🚀
-                        </div>
+                            <!-- Post Content / Caption with Hashtags -->
+                            <div id="details-post-content" class="li-feed-content"></div>
 
-                        <!-- Image Grid Container -->
-                        <div id="li-image-grid" class="li-media-grid" data-count="0">
-                            <!-- Images injected here -->
-                        </div>
+                            <!-- Image Preview if Any -->
+                            <div id="details-image-grid" class="li-feed-media-grid"></div>
 
-                        <div class="li-social-stats">
-                            <div class="li-stats-left">
-                                <div class="li-reaction-icons">👍❤️💡</div>
-                                <span>You and 19 others</span>
+                            <!-- Social Reactions and Comments Stats -->
+                            <div class="li-feed-stats">
+                                <div class="li-reactions-preview">
+                                    <span class="li-reaction-icons">👍❤️💡</span>
+                                    <span>You and 19 others</span>
+                                </div>
+                                <span class="li-comment-count">3 comments</span>
                             </div>
-                            <div class="li-stats-right">
-                                <span>2 comments</span>
+
+                            <!-- Like / Comment / Repost / Send Action Bar -->
+                            <div class="li-feed-action-bar">
+                                <button type="button" class="li-action-pill">
+                                    <span>👍</span> Like
+                                </button>
+                                <button type="button" class="li-action-pill">
+                                    <span>💬</span> Comment
+                                </button>
+                                <button type="button" class="li-action-pill">
+                                    <span>♻️</span> Repost
+                                </button>
+                                <button type="button" class="li-action-pill">
+                                    <span>✈️</span> Send
+                                </button>
                             </div>
                         </div>
 
-                        <div class="li-actions">
-                            <button class="li-action-btn"><span>👍</span> Like</button>
-                            <button class="li-action-btn"><span>💬</span> Comment</button>
-                            <button class="li-action-btn"><span>♻️</span> Repost</button>
-                            <button class="li-action-btn"><span>✈️</span> Send</button>
+                        <!-- Under Preview: Small "Edit caption" text link -->
+                        <div class="details-edit-caption-row">
+                            <button id="btn-details-edit-caption" class="btn-details-edit-link" type="button">
+                                ✎ Edit caption
+                            </button>
                         </div>
                     </div>
-                    
-                    <!-- Analytics & Metrics container -->
-                    <div id="metrics-container" class="metrics-container mt-4">
-                        <!-- AI Insights injected here -->
+
+                    <!-- Sticky Bottom Bar with 3 Actions -->
+                    <div class="post-details-sticky-bar">
+                        <!-- Action 1: Reschedule (or Schedule for drafts) - black primary -->
+                        <button id="btn-details-reschedule" class="btn-details-primary" type="button">
+                            <span id="details-reschedule-label">Reschedule</span>
+                        </button>
+
+                        <!-- Action 2: Post now - outlined secondary -->
+                        <button id="btn-details-post-now" class="btn-details-secondary" type="button">
+                            Post now
+                        </button>
+
+                        <!-- Action 3: ⋯ menu button with Duplicate and Delete (red) -->
+                        <div class="details-more-container">
+                            <button id="btn-details-more-menu" class="btn-details-more" type="button"
+                                title="More options">
+                                ⋯
+                            </button>
+                            <!-- Dropdown Popup Menu -->
+                            <div id="details-more-popup" class="details-dropdown-menu" style="display: none;">
+                                <button id="btn-details-duplicate" class="details-dropdown-item" type="button">
+                                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path
+                                            d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
+                                            stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    <span>Duplicate</span>
+                                </button>
+                                <button id="btn-details-delete" class="details-dropdown-item danger" type="button">
+                                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                            stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    <span>Delete</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </aside>
-        </div>
-    </div>
-    
-    <!-- Queue Modal (Hidden by default, shown via Sidebar Queue button) -->
-    <div id="queue-modal" class="gatekeeper-overlay" style="display: none;">
-        <div class="glass-card queue-card" style="width: 90%; max-width: 1000px; height: 85vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <h2 style="color: white; margin: 0;">Content Queue (<span id="modal-queue-count">0</span>)</h2>
-                <button id="btn-close-queue" class="btn-icon" style="font-size: 1.5rem; color: white;">✕</button>
-            </div>
-            <div id="post-list" class="post-list">
-                <!-- Posts injected here -->
-            </div>
-        </div>
+            </section>
+
+            <!-- PAGE 4: SETTINGS -->
+            <section id="page-settings" class="page">
+                <div class="settings-viewport">
+                    <h1>Settings</h1>
+
+                    <div class="settings-group">
+                        <p class="settings-group-label">AI ENGINE</p>
+                        <div class="settings-card">
+                            <button class="settings-row" id="btn-open-ai-settings">
+                                <div class="settings-row-info">
+                                    <strong>Google Gemini AI</strong>
+                                    <p id="ai-status-settings">Not configured</p>
+                                </div>
+                                <span class="settings-row-action">⚙️ ›</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <p class="settings-group-label">LINKEDIN</p>
+                        <div class="settings-card">
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <strong>LinkedIn Account</strong>
+                                    <p id="li-status-settings">Not connected</p>
+                                </div>
+                                <a href="/auth/linkedin" id="btn-settings-li-connect" class="btn-connect-sm">Connect</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <p class="settings-group-label">ACCOUNT</p>
+                        <div class="settings-card">
+                            <button class="settings-row danger" id="btn-logout">
+                                <div class="settings-row-info">
+                                    <strong>Log Out</strong>
+                                    <p>Sign out of your session</p>
+                                </div>
+                                <span class="settings-row-action">→</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Fixed Bottom Tab Bar -->
+        <nav class="bottom-nav">
+            <!-- Home -->
+            <button class="nav-tab" data-page="home">
+                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path
+                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Home</span>
+            </button>
+
+            <!-- Create (Active Floating Button) -->
+            <button class="nav-tab nav-tab-create active" data-page="create">
+                <div class="create-fab-circle">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+                    </svg>
+                </div>
+                <span>Create</span>
+            </button>
+
+            <!-- Schedule -->
+            <button class="nav-tab" data-page="schedule">
+                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Schedule</span>
+            </button>
+
+            <!-- Settings -->
+            <button class="nav-tab" data-page="settings">
+                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Settings</span>
+            </button>
+        </nav>
     </div>
 
-    <!-- Mobile Sticky Action Bar -->
-    <div class="mobile-sticky-bar">
-        <button id="sticky-ai-draft" class="sticky-btn btn-secondary">Draft</button>
-        <button id="sticky-publish" class="sticky-btn btn-primary">Publish</button>
-    </div>
-
-    <script src="app.js"></script>
+    <!-- Supabase JS Client SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config.js"></script>
+    <script src="app.js?v=17"></script>
 </body>
 
 </html>

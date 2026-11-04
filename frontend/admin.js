@@ -1,6 +1,6 @@
-const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+const API_BASE = window.LINKEDIN_API_BASE || ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? `http://${window.location.hostname}:8000`
-    : window.location.origin.replace(':8080', ':8000');
+    : window.location.origin.replace(':8080', ':8000'));
 
 const loginSection = document.getElementById('login-section');
 const dashSection = document.getElementById('dashboard-section');
