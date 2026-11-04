@@ -43,8 +43,8 @@ async def check_auth(request: Request, response: Response, db: Session = Depends
             value=app_session.session_id,
             httponly=True,
             max_age=7 * 24 * 60 * 60,
-            samesite="lax",
-            secure=request.url.scheme == "https",
+            samesite="none" if settings.APP_ENV == "production" else "lax",
+            secure=settings.APP_ENV == "production" or request.url.scheme == "https",
             path="/",
         )
         raw_metadata = getattr(auth_user, "user_metadata", None)
@@ -171,7 +171,8 @@ def login(request: Request, response: Response, payload: schemas.UserLogin, db: 
         value=new_session.session_id, 
         httponly=True, 
         max_age=7*24*60*60, 
-        samesite='lax',
+        samesite='none' if settings.APP_ENV == "production" else 'lax',
+        secure=settings.APP_ENV == "production" or request.url.scheme == "https",
         path="/"
     )
     return {"status": "success", "username": user.username, "name": user.name}

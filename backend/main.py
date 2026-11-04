@@ -27,6 +27,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 def _cors_origins():
     origins = {
+        "https://linkedin-assistant-frontend.vercel.app",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:8000",

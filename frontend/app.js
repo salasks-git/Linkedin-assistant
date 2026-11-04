@@ -12,6 +12,9 @@ const nativeFetch = window.fetch.bind(window);
 async function initializeSupabaseClient() {
     try {
         const response = await nativeFetch(`${API_BASE}/api/config`);
+        if (!response.ok) {
+            throw new Error(`Backend config request failed (${response.status})`);
+        }
         const config = await response.json();
         if (!response.ok || !config.is_supabase_auth_configured || !window.supabase?.createClient) {
             console.warn("[Supabase] Auth settings are missing or the SDK failed to load.");
@@ -384,6 +387,9 @@ async function checkAuthStatus() {
         if (res.status === 401) {
             if (el.authOverlay) el.authOverlay.style.display = 'flex';
             return;
+        }
+        if (!res.ok) {
+            throw new Error(`Backend auth check failed (${res.status})`);
         }
         const data = await res.json();
 
