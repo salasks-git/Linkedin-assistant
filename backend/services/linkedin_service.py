@@ -55,6 +55,7 @@ class LinkedInService:
         self,
         scope: str = "w_member_social profile openid email",
         redirect_uri: Optional[str] = None,
+        state: Optional[str] = None,
     ) -> str:
         """Construct authorization URL using system-level OAuth credentials."""
         if not self.client_id:
@@ -65,6 +66,8 @@ class LinkedInService:
             "redirect_uri": redirect_uri or self.redirect_uri,
             "scope": scope,
         }
+        if state:
+            params["state"] = state
         return f"https://www.linkedin.com/oauth/v2/authorization?{urlencode(params)}"
 
     async def exchange_code_for_token(

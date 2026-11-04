@@ -1,6 +1,14 @@
 import os
 import datetime
+import base64
+import binascii
+import hashlib
+import hmac
 import httpx
+import json
+import secrets
+import time
+from typing import Optional
 from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
@@ -21,6 +29,46 @@ from core.config import settings
 from db.supabase_client import supabase_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _create_linkedin_state(user_id: str) -> str:
+    secret = settings.ENCRYPTION_KEY.strip()
+    if not secret:
+        raise HTTPException(status_code=503, detail="LinkedIn connection security is not configured")
+    payload = json.dumps(
+        {"user_id": str(user_id), "issued_at": int(time.time()), "nonce": secrets.token_urlsafe(24)},
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    signature = hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(payload + signature).decode("ascii").rstrip("=")
+
+
+def _read_linkedin_state(state: str) -> str:
+    secret = settings.ENCRYPTION_KEY.strip()
+    try:
+        encoded = state + "=" * (-len(state) % 4)
+        raw = base64.urlsafe_b64decode(encoded.encode("ascii"))
+        payload, signature = raw[:-32], raw[-32:]
+        expected = hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).digest()
+        if not secret or not hmac.compare_digest(signature, expected):
+            raise ValueError("Invalid LinkedIn sign-in state")
+        data = json.loads(payload.decode("utf-8"))
+        issued_at = int(data["issued_at"])
+        if abs(int(time.time()) - issued_at) > 600:
+            raise ValueError("LinkedIn sign-in expired; please try again")
+        user_id = data.get("user_id")
+        if not user_id:
+            raise ValueError("LinkedIn sign-in state has no user")
+        return str(user_id)
+    except (ValueError, TypeError, KeyError, UnicodeDecodeError, json.JSONDecodeError, binascii.Error) as exc:
+        raise HTTPException(status_code=400, detail="LinkedIn sign-in expired or invalid. Please try again.") from exc
+
+
+def _linkedin_authorization_url(request: Request, user_id: str) -> str:
+    callback_uri = str(request.url_for("linkedin_callback"))
+    state = _create_linkedin_state(user_id)
+    return linkedin_svc.get_authorization_url(redirect_uri=callback_uri, state=state)
 
 @router.get("/check")
 async def check_auth(request: Request, response: Response, db: Session = Depends(get_db)):
@@ -188,18 +236,37 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
     return {"status": "logged out"}
 
 @router.get("/linkedin")
-def linkedin_login(request: Request):
+def linkedin_login(request: Request, session: models.Session = Depends(get_current_session)):
     try:
-        # Derive the callback from the host the user actually opened. The
-        # configured localhost default is wrong for deployed/tunneled sessions.
-        callback_uri = str(request.url_for("linkedin_callback"))
-        auth_url = linkedin_svc.get_authorization_url(redirect_uri=callback_uri)
-        return RedirectResponse(auth_url)
+        return RedirectResponse(_linkedin_authorization_url(request, str(session.user_id)))
     except ValueError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/linkedin/start")
+def linkedin_start(request: Request, session: models.Session = Depends(get_current_session)):
+    """Start LinkedIn OAuth from a credentialed frontend fetch, then navigate to LinkedIn."""
+    try:
+        return {"authorization_url": _linkedin_authorization_url(request, str(session.user_id))}
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/linkedin/callback")
-async def linkedin_callback(code: str, request: Request, db: Session = Depends(get_db), session: models.Session = Depends(get_current_session)):
+async def linkedin_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+):
+    if error or not code or not state:
+        raise HTTPException(status_code=400, detail="LinkedIn sign-in was cancelled or did not return a code. Please try again.")
+    user_id = _read_linkedin_state(state)
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="The account that started LinkedIn sign-in is no longer available. Please sign in again.")
+
     try:
         callback_uri = str(request.url_for("linkedin_callback"))
         token_data = await linkedin_svc.exchange_code_for_token(code, redirect_uri=callback_uri)
@@ -228,7 +295,7 @@ async def linkedin_callback(code: str, request: Request, db: Session = Depends(g
     ).all()
     
     for assoc in existing_associates:
-        if assoc.id != session.user_id:
+        if assoc.id != user.id:
             if not assoc.username:
                 db.delete(assoc)
             else:
@@ -237,10 +304,6 @@ async def linkedin_callback(code: str, request: Request, db: Session = Depends(g
     
     db.commit()
 
-    user = db.query(models.User).filter(models.User.id == session.user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-        
     user.linkedin_user_id = linkedin_user_id
     user.encrypted_token = encrypted
     user.name = name

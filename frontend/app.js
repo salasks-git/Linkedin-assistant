@@ -2,6 +2,22 @@
 const API_BASE = window.LINKEDIN_API_BASE || "";
 document.querySelectorAll('a[href="/auth/linkedin"]').forEach((link) => {
     link.href = `${API_BASE}/auth/linkedin`;
+    link.addEventListener('click', async (event) => {
+        event.preventDefault();
+        try {
+            const response = await fetch(`${API_BASE}/auth/linkedin/start`, {
+                credentials: 'include'
+            });
+            const result = await response.json();
+            if (!response.ok || !result.authorization_url) {
+                throw new Error(result.detail || `LinkedIn sign-in could not start (${response.status}).`);
+            }
+            window.location.assign(result.authorization_url);
+        } catch (error) {
+            console.error('LinkedIn sign-in could not start:', error);
+            showToast(error.message || 'LinkedIn sign-in could not start. Please try again.');
+        }
+    });
 });
 
 // Supabase browser configuration is served by the backend so local and deployed
