@@ -246,4 +246,4 @@ async def linkedin_callback(code: str, request: Request, db: Session = Depends(g
     user.token_expires_at = expiry
     db.commit()
 
-    return RedirectResponse(url="/")
+    return RedirectResponse(url=f"{settings.FRONTEND_URL}/")

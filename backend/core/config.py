@@ -14,6 +14,9 @@ class Settings:
     PROJECT_NAME: str = "LinkedIn Assistant API"
     VERSION: str = "1.0.0"
     APP_ENV: str = os.getenv("APP_ENV", "development").lower()
+    FRONTEND_URL: str = os.getenv(
+        "FRONTEND_URL", "https://linkedin-assistant-frontend.vercel.app"
+    ).strip().rstrip("/")
 
     # Server & Database Settings
     DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/posts.db")
