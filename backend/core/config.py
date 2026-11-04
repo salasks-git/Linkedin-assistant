@@ -66,6 +66,9 @@ class Settings:
         "LINKEDIN_REDIRECT_URI",
         "http://localhost:8000/auth/linkedin/callback"
     )
+    # LinkedIn Marketing API releases are monthly (YYYYMM). Override this in
+    # Render when LinkedIn publishes a newer supported release.
+    LINKEDIN_API_VERSION: str = os.getenv("LINKEDIN_API_VERSION", "202610").strip()
     # Optional system fallback access token
     LINKEDIN_ACCESS_TOKEN: str = os.getenv("LINKEDIN_ACCESS_TOKEN", "")
 

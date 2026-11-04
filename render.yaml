@@ -31,6 +31,8 @@ services:
         sync: false
       - key: LINKEDIN_REDIRECT_URI
         sync: false
+      - key: LINKEDIN_API_VERSION
+        value: "202610"
       - key: ENCRYPTION_KEY
         sync: false
       - key: ADMIN_PASSWORD

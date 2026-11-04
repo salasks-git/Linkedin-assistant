@@ -318,7 +318,9 @@ async def publish_post(
                 usr.linkedin_user_id = None
                 db.commit()
         print(f"ERROR: LinkedIn Publish Failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Upstream LinkedIn failures are gateway errors from this API's point
+        # of view; don't report an application crash (500) for them.
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.delete("/{post_id}")
@@ -398,4 +400,6 @@ async def publish_direct(
                 usr.linkedin_user_id = None
                 db.commit()
         print(f"ERROR: LinkedIn Publish Failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # A failed upstream LinkedIn request is a gateway failure, not an
+        # internal application crash. Preserve the upstream error detail.
+        raise HTTPException(status_code=502, detail=str(e))

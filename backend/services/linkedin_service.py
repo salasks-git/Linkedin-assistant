@@ -99,7 +99,7 @@ class LinkedInService:
             raise ValueError("LINKEDIN_ACCESS_TOKEN is not set in the environment or passed.")
         return {
             "Authorization": f"Bearer {token}",
-            "LinkedIn-Version": "202504",
+            "LinkedIn-Version": settings.LINKEDIN_API_VERSION,
             "X-Restli-Protocol-Version": "2.0.0",
             "Content-Type": "application/json",
         }

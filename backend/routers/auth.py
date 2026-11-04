@@ -107,7 +107,7 @@ async def check_auth(request: Request, response: Response, db: Session = Depends
             full_name=full_name,
             avatar_url=avatar_url,
         )
-        has_linkedin = bool(user.encrypted_token)
+        has_linkedin = False
     else:
         session_id = request.cookies.get("session_id")
         sess = db.query(models.Session).filter(models.Session.session_id == session_id).first() if session_id else None
@@ -142,22 +142,28 @@ async def check_auth(request: Request, response: Response, db: Session = Depends
                 user_gemini_api_key=user.user_gemini_api_key,
                 ai_authorized=bool(user.user_gemini_api_key),
             )
-        has_linkedin = bool(user.encrypted_token)
+        has_linkedin = False
 
     has_ai_auth = bool(profile.get("ai_authorized")) or bool(user.user_gemini_api_key)
+    linkedin_status = "disconnected"
 
     if user and user.encrypted_token:
         try:
             token = decrypt_token(user.encrypted_token)
             await linkedin_svc.get_user_urn(token)
             has_linkedin = True
+            linkedin_status = "connected"
         except Exception as e:
             if "LINKEDIN_UNAUTHORIZED" in str(e):
                 user.encrypted_token = None
                 user.linkedin_user_id = None
                 db.commit()
+                linkedin_status = "disconnected"
             else:
-                has_linkedin = True
+                # Keep the token for retry, but never show a green status when
+                # LinkedIn could not verify it (version/API/network failures).
+                has_linkedin = False
+                linkedin_status = "error"
 
     display_name = (profile.get("full_name") if profile else None) or user.name
     auth_email = getattr(auth_user, "email", None) if auth_user is not None else None
@@ -172,6 +178,7 @@ async def check_auth(request: Request, response: Response, db: Session = Depends
             "email": auth_email,
             "avatar_url": avatar_url,
             "has_linkedin": has_linkedin,
+            "linkedin_status": linkedin_status,
             "has_ai_auth": has_ai_auth,
             "masked_ai_key": user.get_masked_ai_key() if user else None,
             "ai_provider": user.ai_provider if user else None,

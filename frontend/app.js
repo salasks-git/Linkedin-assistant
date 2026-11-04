@@ -411,7 +411,7 @@ async function checkAuthStatus() {
 
         if (data.status === 'authenticated') {
             if (el.authOverlay) el.authOverlay.style.display = 'none';
-            userHasLinkedIn = Boolean(data.user && data.user.has_linkedin);
+            userHasLinkedIn = Boolean(data.user && data.user.linkedin_status === 'connected');
             userHasAIAuth = Boolean(data.user && data.user.has_ai_auth);
 
             aiKeyData.masked_key = data.user?.masked_ai_key || null;
@@ -465,11 +465,20 @@ function updateUserInfo(user) {
     if (el.liPostAvatar) el.liPostAvatar.textContent = initial;
 
     if (el.liStatusSettings) {
-        if (user.has_linkedin) {
+        const linkedinConnected = user.linkedin_status
+            ? user.linkedin_status === 'connected'
+            : Boolean(user.has_linkedin);
+        if (linkedinConnected) {
             el.liStatusSettings.textContent = "Connected 🟢";
             if (el.btnSettingsLiConnect) {
                 el.btnSettingsLiConnect.textContent = "Connected";
                 el.btnSettingsLiConnect.classList.add("connected");
+            }
+        } else if (user.linkedin_status === 'error') {
+            el.liStatusSettings.textContent = "Unable to verify — check LinkedIn/API 🟠";
+            if (el.btnSettingsLiConnect) {
+                el.btnSettingsLiConnect.textContent = "Reconnect";
+                el.btnSettingsLiConnect.classList.remove("connected");
             }
         } else {
             el.liStatusSettings.textContent = "Not connected";
@@ -2030,7 +2039,10 @@ async function publishDirectly(event) {
                 detail = typeof err.detail === 'string' ? err.detail : (err.detail?.message || detail);
             } catch {}
             console.error('LinkedIn publish failed:', res.status, detail);
-            await copyDraftAfterPublishFailure('LinkedIn publishing failed.');
+            const friendlyError = detail.includes('426') || detail.includes('NONEXISTENT_VERSION')
+                ? 'LinkedIn rejected the API version. The backend needs its latest deployment.'
+                : (detail && detail !== 'Could not post to LinkedIn.' ? detail.slice(0, 180) : 'LinkedIn publishing failed.');
+            await copyDraftAfterPublishFailure(friendlyError);
         }
     } catch (error) {
         console.error('LinkedIn publish request failed:', error);
