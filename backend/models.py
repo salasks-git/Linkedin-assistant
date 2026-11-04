@@ -6,7 +6,8 @@ import uuid
 Base = declarative_base()
 
 class Post(Base):
-    __tablename__ = "posts"
+    # Supabase owns public.posts; this table is only the local fallback.
+    __tablename__ = "local_posts"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, index=True, nullable=True) # ForeignKey would be better but let's keep it flexible for now
@@ -17,13 +18,6 @@ class Post(Base):
     image_paths = Column(Text, nullable=True) # JSON list of local file names
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-class UserProfile(Base):
-    __tablename__ = "user_profiles"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=True)
-    linkedin_token = Column(String, nullable=True)
-
 class User(Base):
     __tablename__ = "users"
 
@@ -33,8 +27,33 @@ class User(Base):
     linkedin_user_id = Column(String, unique=True, index=True, nullable=True)
     name = Column(String, nullable=True)
     encrypted_token = Column(Text, nullable=True)
-    token_expires_at = Column(DateTime, nullable=True) 
+    token_expires_at = Column(DateTime, nullable=True)
+
+    # User-level AI Key Management (Encrypted)
+    user_gemini_api_key = Column(Text, nullable=True)
+    ai_provider = Column(String, default="gemini", nullable=True)
+    ai_authorized_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    def get_decrypted_ai_key(self):
+        """Decrypts and returns user's stored API key."""
+        if not self.user_gemini_api_key:
+            return None
+        try:
+            from utils.encryption import decrypt_token
+            return decrypt_token(self.user_gemini_api_key)
+        except Exception:
+            return None
+
+    def get_masked_ai_key(self):
+        """Returns safe preview for UI/API display."""
+        raw = self.get_decrypted_ai_key()
+        if not raw:
+            return None
+        if len(raw) > 8:
+            return f"{raw[:4]}...{raw[-4:]}"
+        return "••••••••"
 
 class Session(Base):
     __tablename__ = "sessions"

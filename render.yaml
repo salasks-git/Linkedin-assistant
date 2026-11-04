@@ -1,18 +1,51 @@
 services:
   - type: web
-    name: linkedin-assistant
+    name: linkedin-assistant-api
     runtime: python
-    buildCommand: "cd backend && pip install -r requirements.txt"
-    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: commit
     envVars:
-      - key: PORT
-        value: "8000"
+      - key: APP_ENV
+        value: production
       - key: PYTHON_VERSION
-        value: "3.10.0"
-      # The following must be set securely in the Render Dashboard after deployment:
-      # - MASTER_PASSWORD
-      # - ADMIN_PASSWORD
-      # - GOOGLE_API_KEY
-      # - LINKEDIN_CLIENT_ID
-      # - LINKEDIN_CLIENT_SECRET
-      # - DATABASE_URL (if using Postgres. If omitted, will default to local SQLite)
+        value: "3.11.11"
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        value: https://nuuzxooibsqrpwgruygu.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: LINKEDIN_REDIRECT_URI
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_TOKEN
+        generateValue: true
+
+  - type: web
+    name: linkedin-assistant-frontend
+    runtime: static
+    branch: main
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: commit
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false

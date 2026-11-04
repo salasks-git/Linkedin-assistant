@@ -4,6 +4,8 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+*.db
+backend/uploads/
 env/
 venv/
 .venv/

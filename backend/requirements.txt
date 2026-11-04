@@ -12,3 +12,4 @@ slowapi
 authlib
 passlib
 bcrypt
+supabase>=2.30.0

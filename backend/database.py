@@ -1,8 +1,12 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from core.config import settings
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./posts.db")
+SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL or os.getenv("DATABASE_URL", "sqlite:///./posts.db")
+
+if settings.APP_ENV == "production" and not SQLALCHEMY_DATABASE_URL.startswith(("postgresql://", "postgres://")):
+    raise RuntimeError("Production requires a persistent PostgreSQL DATABASE_URL")
 
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     engine = create_engine(

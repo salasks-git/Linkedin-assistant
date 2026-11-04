@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 
 class PostBase(BaseModel):
     content: str
@@ -9,12 +9,12 @@ class PostCreate(PostBase):
     pass
 
 class Post(PostBase):
-    id: int
-    scheduled_at: datetime
+    id: Union[str, int]
+    scheduled_at: Optional[Union[datetime, str]] = None
     status: str
     linkedin_post_id: Optional[str] = None
     image_urls: List[str] = []
-    created_at: datetime
+    created_at: Optional[Union[datetime, str]] = None
 
     class Config:
         from_attributes = True
@@ -47,11 +47,27 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+class UserAIAuthRequest(BaseModel):
+    api_key: str
+    provider: Optional[str] = "gemini"
+    validate_key: Optional[bool] = True
+
+class UserAIAuthResponse(BaseModel):
+    status: str
+    provider: str
+    masked_key: str
+    authorized_at: datetime
+    message: str
+
 class UserOut(BaseModel):
     id: str
     username: Optional[str]
     name: Optional[str]
     has_linkedin: bool
+    has_ai_auth: bool = False
+    ai_provider: Optional[str] = None
+    masked_ai_key: Optional[str] = None
+    ai_authorized_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

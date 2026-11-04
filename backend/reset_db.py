@@ -1,6 +1,6 @@
 import os
 from sqlalchemy import create_engine
-from models import Base, Post, User, Session as UserSession, UserProfile
+from models import Base, Post, User, Session as UserSession
 from database import SQLALCHEMY_DATABASE_URL
 from dotenv import load_dotenv
 

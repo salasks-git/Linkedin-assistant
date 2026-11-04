@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 import os
 from dotenv import load_dotenv
 from fastapi.staticfiles import StaticFiles
@@ -12,21 +12,39 @@ load_dotenv()
 
 import models
 from database import engine
-from routers import auth, posts, admin
+from core.config import settings
+from routers import auth, posts, admin, user
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="LinkedIn Assistant API")
+app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION)
 
 # Rate Limiting
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+def _cors_origins():
+    origins = {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    }
+    for key in ("FRONTEND_URL", "VERCEL_URL", "VERCEL_BRANCH_URL"):
+        for origin in os.getenv(key, "").split(","):
+            origin = origin.strip().rstrip("/")
+            if origin:
+                if "://" not in origin:
+                    origin = f"https://{origin}"
+                origins.add(origin)
+    return sorted(origins)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,59 +53,97 @@ app.add_middleware(
 # ─── API Routes FIRST (before static mount) ───────────────────────────────────
 
 app.include_router(auth.router)
+app.include_router(user.router)
 app.include_router(posts.router)
 app.include_router(admin.router)
 
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from database import get_db
+from utils.auth import get_current_session
+from utils.encryption import decrypt_token
+from services import ai_service
+from db.supabase_client import supabase_db
+import schemas
+
+@app.on_event("startup")
+async def startup_event():
+    if settings.is_supabase_configured:
+        print("⚡ [Supabase] Connected to Supabase PostgreSQL.")
+        migration_res = supabase_db.run_migrations()
+        print(f"⚡ [Supabase] Migration status: {migration_res.get('message', 'done')}")
+    else:
+        print("ℹ️ [Supabase] SUPABASE_URL not configured. Operating in local fallback mode.")
+
+@app.post("/api/generate")
+async def api_generate_post(
+    request: schemas.AIDraftRequest,
+    db: Session = Depends(get_db),
+    session: models.Session = Depends(get_current_session)
+):
+    """
+    Generate LinkedIn draft dynamically injecting the current user's authorized Gemini key per request.
+    Retrieves key from Supabase 'profiles' table with local fallback.
+    """
+    user_key = None
+    if session.user_id:
+        profile = supabase_db.get_profile(str(session.user_id))
+        if profile and profile.get("user_gemini_api_key"):
+            try:
+                user_key = decrypt_token(profile["user_gemini_api_key"])
+            except Exception:
+                user_key = None
+
+    if not user_key and session.user_id:
+        user = db.query(models.User).filter(models.User.id == session.user_id).first()
+        user_key = user.get_decrypted_ai_key() if user else None
+
+    if not user_key:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "AI_AUTH_REQUIRED", "message": "Connect a Gemini API key in AI Settings to generate drafts."},
+        )
+    key_valid, key_error = await ai_service.validate_gemini_api_key(user_key)
+    if not key_valid:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "AI_AUTH_INVALID", "message": "Your Gemini API key could not be authorized. Update it in AI Settings.", "diagnostic": key_error},
+        )
+
+    metadata = {
+        "resource_persons": request.resource_persons,
+        "coordinators": request.coordinators,
+        "mentors": request.mentors,
+        "tone": request.tone
+    }
+
+    return StreamingResponse(
+        ai_service.generate_linkedin_draft(
+            topic=request.topic,
+            tone=request.tone,
+            prompt_type=request.prompt_type,
+            metadata=metadata,
+            api_key=user_key
+        ),
+        media_type="text/plain"
+    )
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "cwd": os.getcwd()}
+    return {"status": "ok", "project": settings.PROJECT_NAME, "version": settings.VERSION}
 
-@app.get("/debug/ai")
-def debug_ai():
-    """Test the AI connection — returns the raw Google error for diagnosis."""
-    key = os.getenv("GOOGLE_API_KEY")
-    if not key:
-        return {"error": "NO API KEY FOUND IN ENVIRONMENT"}
-
-    key_preview = key[:8] + "..." + key[-4:]
-
-    try:
-        from google import genai
-        client = genai.Client(api_key=key, http_options={"api_version": "v1"})
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents="Say: Hello World"
-        )
-        return {"status": "SUCCESS", "key_preview": key_preview, "response": response.text}
-    except Exception as e:
-        return {"status": "FAILED", "key_preview": key_preview, "raw_error": str(e)}
-
-# ─── Static File Serving LAST ─────────────────────────────────────────────────
-
-# Resolve frontend path
-base_path = os.path.dirname(os.path.abspath(__file__))
-potential_paths = [
-    os.path.join(base_path, "..", "frontend"),
-    os.path.join(base_path, "frontend"),
-    "/app/frontend",
-    "./frontend"
-]
-
-frontend_dir = None
-for p in potential_paths:
-    if os.path.exists(p) and os.path.isdir(p):
-        frontend_dir = os.path.abspath(p)
-        print(f"✅ FOUND FRONTEND AT: {frontend_dir}")
-        break
-
-if not frontend_dir:
-    print(f"❌ ERROR: Frontend directory not found")
-    frontend_dir = base_path
+@app.get("/api/config")
+def api_public_config():
+    """Returns public client configuration including Supabase URL and Anon Key."""
+    return {
+        "supabase_url": settings.SUPABASE_URL,
+        "supabase_anon_key": settings.SUPABASE_ANON_KEY,
+        "is_supabase_configured": settings.is_supabase_configured,
+        "is_supabase_auth_configured": settings.is_supabase_auth_configured,
+    }
 
 # Mount uploads
 if not os.path.exists("uploads"):
     os.makedirs("uploads")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Mount frontend — MUST be last so it doesn't swallow API routes
-app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
