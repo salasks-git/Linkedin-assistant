@@ -7,6 +7,7 @@ httpx
 python-dotenv
 google-genai
 psycopg2-binary
+psycopg[binary]>=3.2,<4
 cryptography
 slowapi
 authlib
