@@ -322,8 +322,11 @@ async def linkedin_callback(
         parsed_frontend_url = urlsplit(frontend_url)
         if (
             parsed_frontend_url.scheme != "https"
-            or parsed_frontend_url.hostname != "linkedin-assistant-frontend.vercel.app"
+            or parsed_frontend_url.hostname not in {
+                "linkedin-assistant-frontend.vercel.app",
+                "postly-li.vercel.app",
+            }
             or parsed_frontend_url.path not in ("", "/")
         ):
-            frontend_url = "https://linkedin-assistant-frontend.vercel.app"
+            frontend_url = "https://postly-li.vercel.app"
     return RedirectResponse(url=f"{frontend_url}/")

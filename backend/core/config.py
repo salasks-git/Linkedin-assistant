@@ -15,7 +15,7 @@ class Settings:
     VERSION: str = "1.0.0"
     APP_ENV: str = os.getenv("APP_ENV", "development").lower()
     FRONTEND_URL: str = os.getenv(
-        "FRONTEND_URL", "https://linkedin-assistant-frontend.vercel.app"
+        "FRONTEND_URL", "https://postly-li.vercel.app"
     ).strip().rstrip("/")
 
     # Server & Database Settings
