@@ -1,6 +1,7 @@
 import os
 import datetime
 import httpx
+from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -246,4 +247,13 @@ async def linkedin_callback(code: str, request: Request, db: Session = Depends(g
     user.token_expires_at = expiry
     db.commit()
 
-    return RedirectResponse(url=f"{settings.FRONTEND_URL}/")
+    frontend_url = settings.FRONTEND_URL
+    if settings.APP_ENV == "production":
+        parsed_frontend_url = urlsplit(frontend_url)
+        if (
+            parsed_frontend_url.scheme != "https"
+            or parsed_frontend_url.hostname != "linkedin-assistant-frontend.vercel.app"
+            or parsed_frontend_url.path not in ("", "/")
+        ):
+            frontend_url = "https://linkedin-assistant-frontend.vercel.app"
+    return RedirectResponse(url=f"{frontend_url}/")
