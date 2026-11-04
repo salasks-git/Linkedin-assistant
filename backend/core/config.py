@@ -22,7 +22,11 @@ class Settings:
     ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "")
 
     # Supabase (PostgreSQL) Configuration
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    # The project URL is public client configuration. Keep it as a fallback so
+    # auth can initialize if the host omits this non-secret environment value.
+    SUPABASE_URL: str = os.getenv(
+        "SUPABASE_URL", "https://nuuzxooibsqrpwgruygu.supabase.co"
+    ).strip() or "https://nuuzxooibsqrpwgruygu.supabase.co"
     SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
 
