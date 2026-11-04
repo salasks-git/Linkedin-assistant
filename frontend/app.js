@@ -121,6 +121,8 @@ let currentPosts = [];
 let currentFilter = 'all';
 let selectedModel = 'gemini-3.8-flash';
 let selectedModelName = 'Gemini 3.8 Flash';
+let currentPageId = null;
+const APP_PAGE_IDS = new Set(['home', 'create', 'schedule', 'settings', 'post-details']);
 
 // Schedule Post State
 let selectedScheduleDate = 16; // Default to Monday 16th
@@ -298,6 +300,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupScheduleListeners();
     setupPostDetails();
     setupSettingsListeners();
+    window.addEventListener('popstate', (event) => {
+        const pageFromUrl = new URLSearchParams(window.location.search).get('page');
+        const page = event.state?.postlyPage || (APP_PAGE_IDS.has(pageFromUrl) ? pageFromUrl : 'create');
+        switchPage(page, { historyMode: 'none' });
+    });
+
+    const urlPage = new URLSearchParams(window.location.search).get('page');
+    let initialPage = APP_PAGE_IDS.has(urlPage) ? urlPage : 'create';
+    if (initialPage === 'post-details') {
+        try {
+            const savedPost = JSON.parse(sessionStorage.getItem('postly_active_detail_post') || 'null');
+            if (savedPost) {
+                openPostDetails(savedPost, { historyMode: 'replace' });
+            } else {
+                initialPage = 'schedule';
+                switchPage(initialPage, { historyMode: 'replace' });
+            }
+        } catch (error) {
+            console.warn('Could not restore the open post:', error);
+            initialPage = 'schedule';
+            switchPage(initialPage, { historyMode: 'replace' });
+        }
+    } else {
+        switchPage(initialPage, { historyMode: 'replace' });
+    }
     renderWeekStrip();
     await initializeSupabaseClient();
     await checkAuthStatus();
@@ -306,8 +333,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ==========================================================================
 // TAB NAVIGATION
 // ==========================================================================
-function switchPage(pageId) {
+function switchPage(pageId, { historyMode = 'push' } = {}) {
     if (!el.pages || !el.navTabs) return;
+    if (!APP_PAGE_IDS.has(pageId)) return;
+
+    const previousPageId = currentPageId;
+    if (historyMode === 'push' && previousPageId === pageId) return;
+
+    const pageUrl = new URL(window.location.href);
+    pageUrl.searchParams.set('page', pageId);
+    const pageHistoryState = {
+        ...(window.history.state || {}),
+        postlyPage: pageId,
+        postlyPreviousPage: historyMode === 'push' ? previousPageId : null,
+    };
+    if (historyMode === 'push') {
+        window.history.pushState(pageHistoryState, '', pageUrl);
+    } else if (historyMode === 'replace') {
+        window.history.replaceState(pageHistoryState, '', pageUrl);
+    }
+    currentPageId = pageId;
 
     el.pages.forEach(p => p.classList.remove('active'));
     el.navTabs.forEach(t => t.classList.remove('active'));
@@ -1756,9 +1801,14 @@ function formatPostTextWithHashtags(text) {
 }
 
 // Function to populate and open Post Details screen
-function openPostDetails(post) {
+function openPostDetails(post, { historyMode = 'push' } = {}) {
     if (!post) return;
     activeDetailPost = post;
+    try {
+        sessionStorage.setItem('postly_active_detail_post', JSON.stringify(post));
+    } catch (error) {
+        console.warn('Could not save the open post for reload:', error);
+    }
 
     // Top Bar Status Label: ("Draft" in gray, or "Scheduled · Mon 8:45 AM" in green)
     if (el.detailsStatusBadge) {
@@ -1830,7 +1880,7 @@ function openPostDetails(post) {
     }
 
     // Switch to Post Details page
-    switchPage('post-details');
+    switchPage('post-details', { historyMode });
 }
 
 // Setup Event Listeners for Post Details screen
@@ -1838,7 +1888,11 @@ function setupPostDetails() {
     // Top Bar Back Arrow -> returns to Schedule
     if (el.btnDetailsBack) {
         el.btnDetailsBack.addEventListener('click', () => {
-            switchPage('schedule');
+            if (window.history.state?.postlyPreviousPage) {
+                window.history.back();
+            } else {
+                switchPage('schedule');
+            }
         });
     }
 
