@@ -465,9 +465,9 @@ function updateUserInfo(user) {
     if (el.liPostAvatar) el.liPostAvatar.textContent = initial;
 
     if (el.liStatusSettings) {
-        const linkedinConnected = user.linkedin_status
-            ? user.linkedin_status === 'connected'
-            : Boolean(user.has_linkedin);
+        // Do not fall back to the legacy has_linkedin boolean. Older backend
+        // versions set it true even when LinkedIn API requests fail.
+        const linkedinConnected = user.linkedin_status === 'connected';
         if (linkedinConnected) {
             el.liStatusSettings.textContent = "Connected 🟢";
             if (el.btnSettingsLiConnect) {
@@ -477,7 +477,13 @@ function updateUserInfo(user) {
         } else if (user.linkedin_status === 'error') {
             el.liStatusSettings.textContent = "Unable to verify — check LinkedIn/API 🟠";
             if (el.btnSettingsLiConnect) {
-                el.btnSettingsLiConnect.textContent = "Reconnect";
+                el.btnSettingsLiConnect.textContent = "Retry connection";
+                el.btnSettingsLiConnect.classList.remove("connected");
+            }
+        } else if (!user.linkedin_status && user.has_linkedin) {
+            el.liStatusSettings.textContent = "Backend update required — status unverified 🟠";
+            if (el.btnSettingsLiConnect) {
+                el.btnSettingsLiConnect.textContent = "Retry after update";
                 el.btnSettingsLiConnect.classList.remove("connected");
             }
         } else {
